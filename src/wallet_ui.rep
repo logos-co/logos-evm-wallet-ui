@@ -13,6 +13,7 @@ class WalletUi
     PROP(QString balancesJson READONLY)
     PROP(QString tokensJson READONLY)
     PROP(QString historyJson READONLY)
+    PROP(QString marketJson READONLY)
     PROP(QString proxyStatus="" READONLY)
 
     // Config / privacy
@@ -31,6 +32,9 @@ class WalletUi
     SLOT(void refreshBalances(QString address))
     SLOT(void loadTokens(int chainId))
     SLOT(bool addCustomToken(QString tokenJson))
+
+    // Market (Uniswap prices for held tokens)
+    SLOT(void refreshMarket(QString address))
 
     // Send
     SLOT(QString estimateFee(QString sendJson))
