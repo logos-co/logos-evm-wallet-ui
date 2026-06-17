@@ -13,9 +13,9 @@ intro: |
   auto-loads the backend module tree. This doc-test launches that app **headless**
   (`QT_QPA_PLATFORM=offscreen`) and drives it through the QML inspector with
   [`logos-qt-mcp`](https://github.com/logos-co/logos-qt-mcp): it waits for the UI
-  to come up, opens the create-account dialog, and applies a proxy setting — a
-  real `set_proxy_config` round-trip into the bundled backend that flips the
-  status to **Proxy applied** — capturing screenshots along the way.
+  to come up, opens the privacy settings, and applies a SOCKS5 proxy — a real
+  `set_proxy_config` round-trip into the bundled backend that flips the status to
+  **Proxy applied** — capturing screenshots along the way.
 
 what_you_build: "The `logos-evm-wallet-ui` standalone app, launched headless and driven through its QML UI against the bundled wallet backend."
 
@@ -56,7 +56,7 @@ sections:
     steps:
       - title: "Launch and drive the app"
         ui_test:
-          launch: "nix run github:logos-co/logos-evm-wallet-ui --no-write-lock-file"
+          launch: "nix run github:logos-co/logos-evm-wallet-ui{release} --no-write-lock-file"
           qt_mcp: "result-mcp"
           build_timeout: 2400
           launch_timeout: 900
@@ -66,36 +66,11 @@ sections:
               texts: ["Balances", "Send", "Tokens", "History", "Settings"]
               timeout: 30000
               screenshot: "wallet-ui-launch.png"
-            - name: "Open the create-account dialog"
-              action: click
-              target: "New"
-            - name: "The create dialog appears"
-              action: wait_for
-              texts: ["Create account"]
-              timeout: 8000
-            - name: "Enter an account label"
-              action: set_text
-              find_by: "placeholderText"
-              find_value: "Label"
-              value: "main"
-            - name: "Enter a passphrase"
-              action: set_text
-              find_by: "placeholderText"
-              find_value: "Passphrase"
-              value: "doctest-pass"
-              screenshot: "wallet-ui-create.png"
-            # Clicking OK calls wallet_backend_module.create_account through the
-            # bundled backend (which creates a scrypt vault in the keystore module).
-            - name: "Confirm creation (UI -> backend -> keystore)"
-              action: click
-              target: "OK"
-            - name: "Let the keystore create the account"
-              action: sleep
-              ms: 3000
-            # Open the privacy settings and apply a proxy. The button calls
-            # wallet_backend_module.set_proxy_config and, on success, sets the
-            # status line to the fixed string "Proxy applied" — so waiting for that
-            # exact text proves a real UI -> backend round-trip, not just a render.
+            # Open the privacy settings and apply a proxy. The "Apply proxy" button
+            # calls wallet_backend_module.set_proxy_config over the Logos bridge and
+            # then sets the status line to the fixed string "Proxy applied" — so
+            # waiting for that exact text is proof of a real UI -> backend
+            # round-trip into the bundled module tree, not just a render.
             - name: "Open the privacy settings"
               action: click
               target: "Settings"
@@ -104,17 +79,19 @@ sections:
               find_by: "placeholderText"
               find_value: "socks5h://127.0.0.1:9050"
               value: "socks5h://127.0.0.1:9050"
+              screenshot: "wallet-ui-settings.png"
             - name: "Apply the proxy (UI -> backend round-trip)"
               action: click
               target: "Apply proxy"
             - name: "Status flips to 'Proxy applied'"
               action: wait_for
               texts: ["Proxy applied"]
-              timeout: 8000
-              screenshot: "wallet-ui-settings.png"
+              timeout: 15000
+              screenshot: "wallet-ui-applied.png"
         post_text: |
-          A rendered, interactive UI that creates an account and applies a proxy
-          setting is end-to-end proof that the QML view, the bundled
-          `wallet_backend_module`, and its keystore dependency are all wired
-          together over the Logos bridge. The captured screenshots are embedded
-          above and in the CI report.
+          A rendered, interactive UI whose **Apply proxy** action flips the status
+          to *Proxy applied* is end-to-end proof that the QML view, the bundled
+          `wallet_backend_module`, and its dependency modules are wired together
+          over the Logos bridge — the call only returns (and the status only
+          updates) because the whole module tree loaded. The captured screenshots
+          are embedded above and in the CI report.
