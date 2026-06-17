@@ -8,7 +8,7 @@
   "main": "wallet_ui_plugin",
   "icon": null,
   "view": "qml/WalletView.qml",
-  "dependencies": ["wallet_backend_module"],
+  "dependencies": ["eth_rpc_module", "keystore_module", "token_list_module", "wallet_backend_module"],
   "codegen": { "rep": "src/wallet_ui.rep" },
 
   "nix": {
