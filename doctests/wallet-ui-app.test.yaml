@@ -61,19 +61,17 @@ sections:
           build_timeout: 2400
           launch_timeout: 900
           tests:
-            - name: "App window opens (all tabs visible)"
+            - name: "App window opens (view rendered)"
               action: wait_for
-              texts: ["Balances", "Send", "Tokens", "History", "Settings"]
+              texts: ["Logos Wallet", "Accounts", "Privacy / proxy"]
               timeout: 30000
               screenshot: "wallet-ui-launch.png"
-            # Open the privacy settings and apply a proxy. The "Apply proxy" button
-            # calls wallet_backend_module.set_proxy_config over the Logos bridge and
-            # then sets the status line to the fixed string "Proxy applied" — so
-            # waiting for that exact text is proof of a real UI -> backend
-            # round-trip into the bundled module tree, not just a render.
-            - name: "Open the privacy settings"
-              action: click
-              target: "Settings"
+            # Enter a proxy URL and apply it. The "Apply proxy" button calls the C++
+            # backend's setProxyConfig SLOT, which calls
+            # modules().wallet_backend_module.set_proxy_config over the type-safe
+            # client and sets the statusText PROP to the fixed string "Proxy
+            # applied" — auto-synced to the QML replica. Waiting for that exact text
+            # is proof of a real UI -> C++ backend -> Rust module round-trip.
             - name: "Enter a SOCKS5 (Tor) proxy URL"
               action: set_text
               find_by: "placeholderText"
