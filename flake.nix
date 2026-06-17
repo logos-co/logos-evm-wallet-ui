@@ -11,6 +11,7 @@
     eth_rpc_module.url = "github:logos-co/logos-evm-eth-rpc-module";
     keystore_module.url = "github:logos-co/logos-evm-keystore-module";
     token_list_module.url = "github:logos-co/logos-evm-token-list-module";
+    uniswap_module.url = "github:logos-co/logos-evm-uniswap-module";
   };
 
   outputs = inputs@{ logos-module-builder, ... }:

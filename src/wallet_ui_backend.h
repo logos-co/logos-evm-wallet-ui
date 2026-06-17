@@ -37,6 +37,9 @@ public:
     void loadTokens(int chainId) override;
     bool addCustomToken(QString tokenJson) override;
 
+    // Market (Uniswap prices for held tokens)
+    void refreshMarket(QString address) override;
+
     // Send
     QString estimateFee(QString sendJson) override;
     QString sendNative(QString sendJson) override;

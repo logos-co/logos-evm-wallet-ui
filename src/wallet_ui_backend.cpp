@@ -13,6 +13,8 @@ void WalletUiBackend::onContextReady()
     // Push backend events into PROPs so the QML view updates live.
     modules().wallet_backend_module.onBalances_updated([this](QString address) {
         setBalancesJson(modules().wallet_backend_module.get_balances(address));
+        // Balances changed → the Market view (priced holdings) is now stale.
+        setMarketJson(modules().wallet_backend_module.get_market(address));
     });
     modules().wallet_backend_module.onTx_status_changed([this](QString) {
         if (!selectedAccount().isEmpty()) {
@@ -108,6 +110,17 @@ bool WalletUiBackend::addCustomToken(QString tokenJson)
     bool ok = modules().wallet_backend_module.add_custom_token(tokenJson);
     setStatusText(ok ? QStringLiteral("Token added") : QStringLiteral("Add token failed"));
     return ok;
+}
+
+// ── Market ───────────────────────────────────────────────────────────────────
+
+void WalletUiBackend::refreshMarket(QString address)
+{
+    setStatusText(QStringLiteral("Loading market…"));
+    // get_market combines the cached balances (held tokens) with Uniswap prices
+    // (token→ETH/USD, best-rate across V2/V3/V4) for the wallet's Market view.
+    setMarketJson(modules().wallet_backend_module.get_market(address));
+    setStatusText(QStringLiteral("Market updated"));
 }
 
 // ── Send ─────────────────────────────────────────────────────────────────────

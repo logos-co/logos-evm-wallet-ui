@@ -20,6 +20,7 @@ Item {
     readonly property var balances: parseField(backend ? backend.balancesJson : "", "balances", ({}))
     readonly property var tokens: parseField(backend ? backend.tokensJson : "", "tokens", [])
     readonly property var history: parseField(backend ? backend.historyJson : "", "history", [])
+    readonly property var market: parseField(backend ? backend.marketJson : "", "chains", [])
 
     function parseField(json, field, fallback) {
         if (!json) return fallback
@@ -87,6 +88,38 @@ Item {
                         Repeater {
                             model: modelData.tokens || []
                             Label { font.pixelSize: 12; color: "#555"; text: modelData.balance + "  " + modelData.address }
+                        }
+                    }
+                }
+            }
+
+            // ── Market (Uniswap prices for held tokens, balance > 0) ──
+            RowLayout {
+                Layout.fillWidth: true; Layout.topMargin: 6
+                Label { text: "Market"; font.bold: true; Layout.fillWidth: true }
+                Button {
+                    text: "Refresh market"; enabled: root.ready && acctBox.currentText.length > 0
+                    onClicked: backend.refreshMarket(acctBox.currentText)
+                }
+            }
+            Repeater {
+                model: root.market
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    Label { text: "chain " + modelData.chainId; font.pixelSize: 11; color: "#888" }
+                    Repeater {
+                        model: modelData.items || []
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Label { text: modelData.symbol; font.bold: true; Layout.preferredWidth: 64 }
+                            Label {
+                                Layout.fillWidth: true; font.pixelSize: 12; color: "#555"
+                                text: modelData.usd != null ? ("$" + Number(modelData.usd).toFixed(2)) : "—"
+                            }
+                            Label {
+                                font.pixelSize: 12; color: "#2e7d32"
+                                text: modelData.valueUsd != null ? ("$" + Number(modelData.valueUsd).toFixed(2)) : ""
+                            }
                         }
                     }
                 }
