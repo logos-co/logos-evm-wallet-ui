@@ -148,7 +148,7 @@ Item {
             TextField { id: proxyUrl; Layout.fillWidth: true; placeholderText: "socks5h://127.0.0.1:9050" }
             CheckBox { id: proxyRequired; text: "Require proxy (fail-closed)" }
             Button {
-                text: "Apply proxy"; enabled: root.ready
+                text: "Apply proxy"; enabled: backend !== null
                 onClicked: backend.setProxyConfig(JSON.stringify({
                     proxy: proxyUrl.text.length ? proxyUrl.text : null,
                     proxyRequired: proxyRequired.checked

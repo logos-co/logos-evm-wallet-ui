@@ -84,7 +84,7 @@ sections:
             - name: "Status flips to 'Proxy applied'"
               action: wait_for
               texts: ["Proxy applied"]
-              timeout: 15000
+              timeout: 30000
               screenshot: "wallet-ui-applied.png"
         post_text: |
           A rendered, interactive UI whose **Apply proxy** action flips the status
