@@ -112,7 +112,7 @@ Item {
                     else unlockDialog.open()
                 }
             }
-            Button { text: "＋"; onClicked: createDialog.open() }
+            Button { text: "New"; onClicked: createDialog.open() }
         }
         Label {
             Layout.fillWidth: true
