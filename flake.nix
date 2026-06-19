@@ -7,7 +7,7 @@
     # tree as inputs lets the standalone app (mkLogosQmlModule's apps.default)
     # bundle and auto-load every module in dependency order — without the leaf
     # modules the backend can't load and the UI's calls time out.
-    wallet_backend_module.url = "github:logos-co/logos-evm-wallet-backend-module";
+    wallet_backend_module.url = "github:logos-co/logos-evm-wallet-backend-module/1f8fbc58647dc84d867ad268ef63c3d9687f5ab9";
     eth_rpc_module.url = "github:logos-co/logos-evm-eth-rpc-module";
     keystore_module.url = "github:logos-co/logos-evm-keystore-module";
     token_list_module.url = "github:logos-co/logos-evm-token-list-module";
