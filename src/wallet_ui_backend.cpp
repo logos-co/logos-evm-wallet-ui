@@ -13,6 +13,12 @@ void WalletUiBackend::onContextReady()
     // Push backend events into PROPs so the QML view updates live.
     modules().wallet_backend_module.onBalances_updated([this](QString address) {
         setBalancesJson(modules().wallet_backend_module.get_balances(address));
+        // Balances changed → refresh the Market view: kick off the per-chain price
+        // fan-out; the priced result lands via onMarket_updated.
+        modules().wallet_backend_module.refresh_market(address);
+    });
+    modules().wallet_backend_module.onMarket_updated([this](QString address) {
+        setMarketJson(modules().wallet_backend_module.get_market(address));
     });
     modules().wallet_backend_module.onTx_status_changed([this](QString) {
         if (!selectedAccount().isEmpty()) {
@@ -108,6 +114,17 @@ bool WalletUiBackend::addCustomToken(QString tokenJson)
     bool ok = modules().wallet_backend_module.add_custom_token(tokenJson);
     setStatusText(ok ? QStringLiteral("Token added") : QStringLiteral("Add token failed"));
     return ok;
+}
+
+// ── Market ───────────────────────────────────────────────────────────────────
+
+void WalletUiBackend::refreshMarket(QString address)
+{
+    setStatusText(QStringLiteral("Loading market…"));
+    // Kick off the per-chain price fan-out (uniswap is concurrency:"multi", so the
+    // chains price in parallel); the priced result lands via onMarket_updated.
+    modules().wallet_backend_module.refresh_market(address);
+    setStatusText(QStringLiteral("Market updated"));
 }
 
 // ── Send ─────────────────────────────────────────────────────────────────────

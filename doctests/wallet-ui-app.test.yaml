@@ -13,15 +13,18 @@ intro: |
   auto-loads the backend module tree. This doc-test launches that app **headless**
   (`QT_QPA_PLATFORM=offscreen`) and drives it through the QML inspector with
   [`logos-qt-mcp`](https://github.com/logos-co/logos-qt-mcp): it waits for the UI
-  to come up, opens the privacy settings, and applies a SOCKS5 proxy — a real
-  `set_proxy_config` round-trip into the bundled backend that flips the status to
-  **Proxy applied** — capturing screenshots along the way.
+  to come up, **navigates every tab** (Balances → Market → Send → Tokens →
+  History → Settings) through the view's `selectTab` helper, and on the Settings
+  tab applies a SOCKS5 proxy — a real `set_proxy_config` round-trip into the
+  bundled backend that flips the status to **Proxy applied** — capturing
+  screenshots along the way.
 
 what_you_build: "The `logos-evm-wallet-ui` standalone app, launched headless and driven through its QML UI against the bundled wallet backend."
 
 what_you_learn:
   - How a QML-only Logos UI exposes a runnable standalone app that bundles its backend
   - How to drive a headless Qt/QML app with logos-qt-mcp (wait, click, type, assert)
+  - How to navigate a tabbed QML UI headlessly by calling a view helper (call_method → selectTab)
   - How a UI action round-trips into the backend module over the Logos bridge
   - How to capture screenshots of the running UI for documentation and CI
 
@@ -56,29 +59,86 @@ sections:
     steps:
       - title: "Launch and drive the app"
         ui_test:
-          # The standalone app's default window is 1024x768, but the full view
-          # (Accounts … Privacy/proxy) is taller, so the "Apply proxy" button sits
-          # below the fold. logos-qt-mcp drives by clicking an element's scene
-          # position and cannot scroll a ScrollView, so launch the app taller
-          # (--height, supported by logos-standalone-app) to keep every section
-          # on-screen. launch_timeout is generous because the app bundle builds
-          # during launch.
+          # Launch taller than the standalone app's 1024x768 default: logos-qt-mcp
+          # drives by clicking an element's scene position and cannot scroll, so a
+          # generous window keeps every tab's controls comfortably on-screen on both
+          # runners (--height is exposed by logos-standalone-app). launch_timeout is
+          # generous because the app bundle (UI plugin + the whole
+          # wallet_backend_module dependency tree) builds during launch.
           launch: "nix run github:logos-co/logos-evm-wallet-ui{release} --no-write-lock-file -- --height 1000"
           qt_mcp: "result-mcp"
           build_timeout: 2400
           launch_timeout: 2400
           tests:
-            - name: "App window opens (view rendered)"
+            - name: "App window opens on the Balances tab"
               action: wait_for
-              texts: ["Logos Wallet", "Accounts", "Privacy / proxy"]
+              texts: ["Logos Wallet", "Accounts", "Refresh balances"]
               timeout: 30000
               screenshot: "wallet-ui-launch.png"
+            # The sections live on a TabBar + StackLayout, so only the ACTIVE page's
+            # controls are in the visible scene. We drive navigation through the
+            # view's selectTab(i) helper — call_method on objectName "walletRoot",
+            # the same pattern the tutorial QML UI uses for coreModulesView. After
+            # each switch we wait for a control UNIQUE to that page (not its tab
+            # button), which is proof the StackLayout rendered the page.
+            - name: "Switch to the Market tab"
+              action: call_method
+              find_by: "objectName"
+              find_value: "walletRoot"
+              method: "selectTab"
+              args: [1]
+            - name: "Market tab rendered"
+              action: wait_for
+              texts: ["Refresh market"]
+              timeout: 15000
+              screenshot: "wallet-ui-market.png"
+            - name: "Switch to the Send tab"
+              action: call_method
+              find_by: "objectName"
+              find_value: "walletRoot"
+              method: "selectTab"
+              args: [2]
+            - name: "Send tab rendered"
+              action: wait_for
+              texts: ["Estimate"]
+              timeout: 15000
+            - name: "Switch to the Tokens tab"
+              action: call_method
+              find_by: "objectName"
+              find_value: "walletRoot"
+              method: "selectTab"
+              args: [3]
+            - name: "Tokens tab rendered"
+              action: wait_for
+              texts: ["Load tokens"]
+              timeout: 15000
+            - name: "Switch to the History tab"
+              action: call_method
+              find_by: "objectName"
+              find_value: "walletRoot"
+              method: "selectTab"
+              args: [4]
+            - name: "History tab rendered"
+              action: wait_for
+              texts: ["Recent activity"]
+              timeout: 15000
+            - name: "Switch to the Settings tab"
+              action: call_method
+              find_by: "objectName"
+              find_value: "walletRoot"
+              method: "selectTab"
+              args: [5]
+            - name: "Settings tab rendered"
+              action: wait_for
+              texts: ["Apply proxy"]
+              timeout: 15000
             # Enter a proxy URL and apply it. The "Apply proxy" button calls the C++
             # backend's setProxyConfig SLOT, which calls
             # modules().wallet_backend_module.set_proxy_config over the type-safe
             # client and sets the statusText PROP to the fixed string "Proxy
-            # applied" — auto-synced to the QML replica. Waiting for that exact text
-            # is proof of a real UI -> C++ backend -> Rust module round-trip.
+            # applied" — auto-synced to the QML replica (the status line is shared
+            # below the tabs). Waiting for that exact text is proof of a real
+            # UI -> C++ backend -> Rust module round-trip.
             - name: "Enter a SOCKS5 (Tor) proxy URL"
               action: set_text
               find_by: "placeholderText"
