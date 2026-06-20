@@ -56,10 +56,17 @@ sections:
     steps:
       - title: "Launch and drive the app"
         ui_test:
-          launch: "nix run github:logos-co/logos-evm-wallet-ui{release} --no-write-lock-file"
+          # The standalone app's default window is 1024x768, but the full view
+          # (Accounts … Privacy/proxy) is taller, so the "Apply proxy" button sits
+          # below the fold. logos-qt-mcp drives by clicking an element's scene
+          # position and cannot scroll a ScrollView, so launch the app taller
+          # (--height, supported by logos-standalone-app) to keep every section
+          # on-screen. launch_timeout is generous because the app bundle builds
+          # during launch.
+          launch: "nix run github:logos-co/logos-evm-wallet-ui{release} --no-write-lock-file -- --height 1000"
           qt_mcp: "result-mcp"
           build_timeout: 2400
-          launch_timeout: 900
+          launch_timeout: 2400
           tests:
             - name: "App window opens (view rendered)"
               action: wait_for
