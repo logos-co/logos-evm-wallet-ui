@@ -1,0 +1,102 @@
+name: "Driving the Wallet UI App Headlessly"
+output: wallet-ui-app.md
+release: ""
+
+intro: |
+  `logos-evm-wallet-ui` is the Metamask-like QML interface for the Logos
+  multi-chain EVM wallet. It is **QML-only**: the view drives
+  `wallet_backend_module` (and, through it, the eth-rpc / keystore / token-list
+  modules) entirely over the `logos` bridge.
+
+  Because it is built with `logos-module-builder`'s `mkLogosQmlModule`, its flake
+  exposes a self-contained standalone app (`apps.default`) that bundles and
+  auto-loads the backend module tree. This doc-test launches that app **headless**
+  (`QT_QPA_PLATFORM=offscreen`) and drives it through the QML inspector with
+  [`logos-qt-mcp`](https://github.com/logos-co/logos-qt-mcp): it waits for the UI
+  to come up, opens the privacy settings, and applies a SOCKS5 proxy — a real
+  `set_proxy_config` round-trip into the bundled backend that flips the status to
+  **Proxy applied** — capturing screenshots along the way.
+
+what_you_build: "The `logos-evm-wallet-ui` standalone app, launched headless and driven through its QML UI against the bundled wallet backend."
+
+what_you_learn:
+  - How a QML-only Logos UI exposes a runnable standalone app that bundles its backend
+  - How to drive a headless Qt/QML app with logos-qt-mcp (wait, click, type, assert)
+  - How a UI action round-trips into the backend module over the Logos bridge
+  - How to capture screenshots of the running UI for documentation and CI
+
+prerequisites:
+  - |
+    **Nix** with flakes enabled (see [nixos.org](https://nixos.org/download.html)).
+  - "**A Linux or macOS machine.** The app runs headless via `QT_QPA_PLATFORM=offscreen`, so no display is required."
+
+sections:
+  - title: "Build the qt-mcp test driver"
+    step: true
+    text: |
+      [`logos-qt-mcp`](https://github.com/logos-co/logos-qt-mcp) connects to the
+      app's QML inspector and drives it. Build it once and link it as
+      `./result-mcp`.
+    steps:
+      - title: "Build logos-qt-mcp"
+        run: "nix build 'github:logos-co/logos-qt-mcp' -o result-mcp"
+        check_file: "result-mcp"
+
+  - title: "Launch the UI and exercise the backend"
+    step: true
+    text: |
+      Launch the standalone app with `nix run`. The app bundles
+      `wallet_backend_module` and its dependency modules and auto-loads them, so a
+      rendered UI that can talk to the backend is itself proof the whole module
+      tree loaded.
+
+      > The first launch builds the full app bundle (the UI plugin, the backend
+      > and its dependencies, and the standalone-app shell), so we allow a generous
+      > build timeout.
+    steps:
+      - title: "Launch and drive the app"
+        ui_test:
+          # The standalone app's default window is 1024x768, but the full view
+          # (Accounts … Privacy/proxy) is taller, so the "Apply proxy" button sits
+          # below the fold. logos-qt-mcp drives by clicking an element's scene
+          # position and cannot scroll a ScrollView, so launch the app taller
+          # (--height, supported by logos-standalone-app) to keep every section
+          # on-screen. launch_timeout is generous because the app bundle builds
+          # during launch.
+          launch: "nix run github:logos-co/logos-evm-wallet-ui{release} --no-write-lock-file -- --height 1000"
+          qt_mcp: "result-mcp"
+          build_timeout: 2400
+          launch_timeout: 2400
+          tests:
+            - name: "App window opens (view rendered)"
+              action: wait_for
+              texts: ["Logos Wallet", "Accounts", "Privacy / proxy"]
+              timeout: 30000
+              screenshot: "wallet-ui-launch.png"
+            # Enter a proxy URL and apply it. The "Apply proxy" button calls the C++
+            # backend's setProxyConfig SLOT, which calls
+            # modules().wallet_backend_module.set_proxy_config over the type-safe
+            # client and sets the statusText PROP to the fixed string "Proxy
+            # applied" — auto-synced to the QML replica. Waiting for that exact text
+            # is proof of a real UI -> C++ backend -> Rust module round-trip.
+            - name: "Enter a SOCKS5 (Tor) proxy URL"
+              action: set_text
+              find_by: "placeholderText"
+              find_value: "socks5h://127.0.0.1:9050"
+              value: "socks5h://127.0.0.1:9050"
+              screenshot: "wallet-ui-settings.png"
+            - name: "Apply the proxy (UI -> backend round-trip)"
+              action: click
+              target: "Apply proxy"
+            - name: "Status flips to 'Proxy applied'"
+              action: wait_for
+              texts: ["Proxy applied"]
+              timeout: 30000
+              screenshot: "wallet-ui-applied.png"
+        post_text: |
+          A rendered, interactive UI whose **Apply proxy** action flips the status
+          to *Proxy applied* is end-to-end proof that the QML view, the bundled
+          `wallet_backend_module`, and its dependency modules are wired together
+          over the Logos bridge — the call only returns (and the status only
+          updates) because the whole module tree loaded. The captured screenshots
+          are embedded above and in the CI report.

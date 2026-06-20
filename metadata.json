@@ -2,15 +2,26 @@
   "name": "wallet_ui",
   "version": "1.0.0",
   "type": "ui_qml",
+  "interface": "universal",
   "category": "wallet",
-  "description": "Multi-chain EVM wallet (Metamask-like): accounts, balances, send (native + ERC20), token lists, local history, proxy settings — over wallet_backend_module.",
-  "view": "qml/WalletView.qml",
+  "description": "Multi-chain EVM wallet (Metamask-like): C++ backend over wallet_backend_module with a QML view.",
+  "main": "wallet_ui_plugin",
   "icon": null,
-  "dependencies": ["wallet_backend_module"],
+  "view": "qml/WalletView.qml",
+  "dependencies": ["eth_rpc_module", "keystore_module", "token_list_module", "wallet_backend_module"],
+  "codegen": { "rep": "src/wallet_ui.rep" },
 
   "nix": {
-    "packages": { "build": [], "runtime": [] },
+    "packages": {
+      "build": [],
+      "runtime": ["qt6.qtdeclarative", "zstd", "krb5", "abseil-cpp"]
+    },
     "external_libraries": [],
-    "cmake": { "find_packages": [], "extra_sources": [], "extra_include_dirs": [], "extra_link_libraries": [] }
+    "cmake": {
+      "find_packages": [],
+      "extra_sources": [],
+      "extra_include_dirs": [],
+      "extra_link_libraries": []
+    }
   }
 }

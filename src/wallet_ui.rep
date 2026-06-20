@@ -1,0 +1,42 @@
+// QtRO view contract for the wallet UI. PROPs auto-sync to every QML replica;
+// SLOTs are callable from QML (via logos.watch for the async reply). The C++
+// backend (wallet_ui_backend.cpp) implements the SLOTs by calling
+// wallet_backend_module over the type-safe modules() client.
+class WalletUi
+{
+    // State (pushed to QML as it changes)
+    PROP(QString statusText="Ready" READONLY)
+    PROP(QString chainsJson READONLY)
+    PROP(QString accountsJson READONLY)
+    PROP(QString selectedAccount READWRITE)
+    PROP(bool accountUnlocked READONLY)
+    PROP(QString balancesJson READONLY)
+    PROP(QString tokensJson READONLY)
+    PROP(QString historyJson READONLY)
+    PROP(QString proxyStatus="" READONLY)
+
+    // Config / privacy
+    SLOT(bool setProxyConfig(QString proxyJson))
+    SLOT(bool setChains(QString chainsJson))
+    SLOT(QString testEndpoint(int chainId))
+
+    // Accounts (signing stays in the keystore module)
+    SLOT(QString createAccount(QString passphrase, QString label))
+    SLOT(QString importMnemonic(QString phraseJson, QString label))
+    SLOT(void refreshAccounts())
+    SLOT(bool unlock(QString address, QString passphrase))
+    SLOT(bool lock(QString address))
+
+    // Balances + tokens
+    SLOT(void refreshBalances(QString address))
+    SLOT(void loadTokens(int chainId))
+    SLOT(bool addCustomToken(QString tokenJson))
+
+    // Send
+    SLOT(QString estimateFee(QString sendJson))
+    SLOT(QString sendNative(QString sendJson))
+    SLOT(QString sendErc20(QString sendJson))
+
+    // History
+    SLOT(void refreshHistory(QString address))
+}
