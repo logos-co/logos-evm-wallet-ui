@@ -122,12 +122,23 @@ sections:
               action: wait_for
               texts: ["Recent activity"]
               timeout: 15000
-            - name: "Switch to the Settings tab"
+            - name: "Switch to the Private tab"
               action: call_method
               find_by: "objectName"
               find_value: "walletRoot"
               method: "selectTab"
               args: [5]
+            - name: "Private (RAILGUN) tab rendered"
+              action: wait_for
+              texts: ["Shielded balance"]
+              timeout: 15000
+              screenshot: "wallet-ui-private.png"
+            - name: "Switch to the Settings tab"
+              action: call_method
+              find_by: "objectName"
+              find_value: "walletRoot"
+              method: "selectTab"
+              args: [6]
             - name: "Settings tab rendered"
               action: wait_for
               texts: ["Apply proxy"]
