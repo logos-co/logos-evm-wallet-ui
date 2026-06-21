@@ -48,6 +48,13 @@ public:
     // History
     void refreshHistory(QString address) override;
 
+    // Private (RAILGUN) — UNAUDITED upstream, Sepolia-first
+    QString initPrivate(QString address, int chainId) override;
+    void syncPrivate() override;
+    void refreshShieldedBalance() override;
+    QString shield(QString sendJson) override;
+    QString privateSend(QString sendJson) override;
+
 protected:
     // Called once after the framework populates modules()/context.
     void onContextReady() override;

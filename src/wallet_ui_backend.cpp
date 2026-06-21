@@ -1,5 +1,8 @@
 #include "wallet_ui_backend.h"
 
+#include <QJsonDocument>
+#include <QJsonObject>
+
 // Generated umbrella: modules() → typed callers + typed event accessors for the
 // modules in metadata.json#dependencies (here: wallet_backend_module).
 #include "logos_sdk.h"
@@ -155,4 +158,54 @@ QString WalletUiBackend::sendErc20(QString sendJson)
 void WalletUiBackend::refreshHistory(QString address)
 {
     setHistoryJson(modules().wallet_backend_module.get_history(address));
+}
+
+// ── Private (RAILGUN) ─────────────────────────────────────────────────────────
+//
+// ⚠️ UNAUDITED upstream engine; Sepolia-first. We only coordinate via
+// wallet_backend_module; the railgun spending/viewing keys never reach the UI.
+
+QString WalletUiBackend::initPrivate(QString address, int chainId)
+{
+    setStatusText(QStringLiteral("Enabling private account…"));
+    QString r = modules().wallet_backend_module.init_private(address, chainId);
+    // r = { ok, address: "0zk…" } — surface the 0zk address to the view.
+    QJsonObject o = QJsonDocument::fromJson(r.toUtf8()).object();
+    if (o.value(QStringLiteral("ok")).toBool()) {
+        setZkAddress(o.value(QStringLiteral("address")).toString());
+        setShieldedBalanceJson(modules().wallet_backend_module.get_shielded_balance());
+        setStatusText(QStringLiteral("Private account ready"));
+    } else {
+        setStatusText(QStringLiteral("Private init failed"));
+    }
+    return r;
+}
+
+void WalletUiBackend::syncPrivate()
+{
+    setStatusText(QStringLiteral("Syncing shielded state…"));
+    modules().wallet_backend_module.sync_private();
+    setShieldedBalanceJson(modules().wallet_backend_module.get_shielded_balance());
+    setStatusText(QStringLiteral("Shielded balance updated"));
+}
+
+void WalletUiBackend::refreshShieldedBalance()
+{
+    setShieldedBalanceJson(modules().wallet_backend_module.get_shielded_balance());
+}
+
+QString WalletUiBackend::shield(QString sendJson)
+{
+    setStatusText(QStringLiteral("Shielding…"));
+    QString r = modules().wallet_backend_module.shield(sendJson);
+    setStatusText(QStringLiteral("Shield submitted"));
+    return r;
+}
+
+QString WalletUiBackend::privateSend(QString sendJson)
+{
+    setStatusText(QStringLiteral("Sending privately (relayer)…"));
+    QString r = modules().wallet_backend_module.private_send(sendJson);
+    setStatusText(QStringLiteral("Private send submitted"));
+    return r;
 }

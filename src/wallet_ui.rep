@@ -16,6 +16,11 @@ class WalletUi
     PROP(QString marketJson READONLY)
     PROP(QString proxyStatus="" READONLY)
 
+    // Private (RAILGUN) — UNAUDITED upstream, Sepolia-first. The public 0zk
+    // address + shielded balances; spending/viewing keys never reach the UI.
+    PROP(QString zkAddress="" READONLY)
+    PROP(QString shieldedBalanceJson="" READONLY)
+
     // Config / privacy
     SLOT(bool setProxyConfig(QString proxyJson))
     SLOT(bool setChains(QString chainsJson))
@@ -43,4 +48,11 @@ class WalletUi
 
     // History
     SLOT(void refreshHistory(QString address))
+
+    // Private (RAILGUN)
+    SLOT(QString initPrivate(QString address, int chainId))
+    SLOT(void syncPrivate())
+    SLOT(void refreshShieldedBalance())
+    SLOT(QString shield(QString sendJson))
+    SLOT(QString privateSend(QString sendJson))
 }
