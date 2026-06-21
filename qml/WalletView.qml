@@ -28,11 +28,17 @@ Item {
     readonly property var tokens: parseField(backend ? backend.tokensJson : "", "tokens", [])
     readonly property var history: parseField(backend ? backend.historyJson : "", "history", [])
     readonly property var market: parseField(backend ? backend.marketJson : "", "chains", [])
+    readonly property var shielded: parseField(backend ? backend.shieldedBalanceJson : "", "balances", [])
 
     function parseField(json, field, fallback) {
         if (!json) return fallback
         try { var o = JSON.parse(json); return (o && o[field] !== undefined) ? o[field] : fallback }
         catch (e) { return fallback }
+    }
+
+    // Active chain id for the Private tab (defaults to Sepolia 11155111).
+    function privChainId() {
+        return root.chains.length ? root.chains[privChain.currentIndex].chainId : 11155111
     }
 
     // Doctest hook: switch the active tab deterministically. qt-mcp drives this via
@@ -89,6 +95,7 @@ Item {
             TabButton { text: "Send" }
             TabButton { text: "Tokens" }
             TabButton { text: "History" }
+            TabButton { text: "Private" }
             TabButton { text: "Settings" }
         }
 
@@ -245,7 +252,110 @@ Item {
                 }
             }
 
-            // ── 5 · Settings (privacy / proxy) ──
+            // ── 5 · Private (RAILGUN — UNAUDITED upstream, Sepolia-first) ──
+            ScrollView {
+                clip: true
+                ColumnLayout {
+                    width: pages.width - 16
+                    spacing: 8
+
+                    // Prominent unaudited / testnet warning.
+                    Frame {
+                        Layout.fillWidth: true
+                        background: Rectangle { color: "#fff3e0"; border.color: "#ef6c00"; radius: 4 }
+                        ColumnLayout {
+                            anchors.fill: parent
+                            Label { text: "⚠ Private transactions (RAILGUN)"; font.bold: true; color: "#e65100" }
+                            Label {
+                                Layout.fillWidth: true; wrapMode: Text.WordWrap; font.pixelSize: 11; color: "#bf360c"
+                                text: "Experimental. The underlying engine is UNAUDITED — use on Sepolia (testnet) only; " +
+                                      "do not move mainnet funds here. Proving a private send can take a while."
+                            }
+                        }
+                    }
+
+                    ComboBox { id: privChain; Layout.fillWidth: true; textRole: "name"; model: root.chains }
+
+                    // Enable the private account + show the 0zk address.
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Button {
+                            text: backend && backend.zkAddress.length ? "Re-enable" : "Enable private account"
+                            enabled: root.ready && backend && backend.accountUnlocked && acctBox.currentText.length > 0
+                            onClicked: logos.watch(backend.initPrivate(acctBox.currentText, root.privChainId()),
+                                                   function (r) {}, function (e) {})
+                        }
+                        Button {
+                            text: "Sync"; enabled: root.ready && backend && backend.zkAddress.length > 0
+                            onClicked: backend.syncPrivate()
+                        }
+                    }
+                    Label {
+                        Layout.fillWidth: true; font.pixelSize: 11; color: "#555"; elide: Text.ElideMiddle
+                        text: backend && backend.zkAddress.length
+                              ? ("0zk: " + backend.zkAddress)
+                              : "Not enabled — unlock an account, then enable."
+                    }
+
+                    // Shielded balances.
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Label { text: "Shielded balance"; font.bold: true; Layout.fillWidth: true }
+                        Button {
+                            text: "Refresh"; enabled: backend && backend.zkAddress.length > 0
+                            onClicked: backend.refreshShieldedBalance()
+                        }
+                    }
+                    Repeater {
+                        model: root.shielded
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Label {
+                                font.pixelSize: 12; Layout.fillWidth: true; elide: Text.ElideMiddle
+                                text: (modelData.asset && modelData.asset.erc20) ? modelData.asset.erc20 : "asset"
+                            }
+                            Label { font.pixelSize: 12; color: "#2e7d32"; text: "" + modelData.amount }
+                        }
+                    }
+                    Label {
+                        visible: !root.shielded || root.shielded.length === 0
+                        text: "No shielded balance"; color: "#888"; font.pixelSize: 12
+                    }
+
+                    // Shield (public → private).
+                    Label { text: "Shield (deposit public → private)"; font.bold: true }
+                    TextField { id: shieldAsset; Layout.fillWidth: true; placeholderText: "ERC-20 token address (0x…)" }
+                    TextField { id: shieldAmount; Layout.fillWidth: true; placeholderText: "Amount (base units)" }
+                    Button {
+                        text: "Shield"
+                        enabled: root.ready && backend && backend.accountUnlocked && backend.zkAddress.length > 0
+                        onClicked: logos.watch(backend.shield(JSON.stringify({
+                            from: acctBox.currentText, chainId: root.privChainId(),
+                            asset: shieldAsset.text, amount: shieldAmount.text
+                        })), function (r) {}, function (e) {})
+                    }
+
+                    // Private send — 0zk… → private transfer, 0x… → unshield (via the 4337 relayer).
+                    Label { text: "Private send (the relayer hides the sender)"; font.bold: true }
+                    TextField { id: privTo; Layout.fillWidth: true; placeholderText: "Recipient — 0zk… (private) or 0x… (withdraw)" }
+                    TextField { id: privAsset; Layout.fillWidth: true; placeholderText: "ERC-20 token address (0x…)" }
+                    TextField { id: privAmount; Layout.fillWidth: true; placeholderText: "Amount (base units)" }
+                    TextField { id: privMemo; Layout.fillWidth: true; placeholderText: "Memo (optional — private transfers only)" }
+                    TextField { id: privBundler; Layout.fillWidth: true; placeholderText: "Bundler URL (ERC-4337, Sepolia)" }
+                    Button {
+                        text: "Send privately"
+                        enabled: root.ready && backend && backend.accountUnlocked
+                                 && backend.zkAddress.length > 0 && privBundler.text.length > 0
+                        onClicked: logos.watch(backend.privateSend(JSON.stringify({
+                            from: acctBox.currentText, chainId: root.privChainId(), to: privTo.text,
+                            asset: privAsset.text, amount: privAmount.text,
+                            memo: privMemo.text, bundlerUrl: privBundler.text
+                        })), function (r) {}, function (e) {})
+                    }
+                }
+            }
+
+            // ── 6 · Settings (privacy / proxy) ──
             ScrollView {
                 clip: true
                 ColumnLayout {
