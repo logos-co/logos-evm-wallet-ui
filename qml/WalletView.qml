@@ -1,11 +1,17 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
+import Logos.Controls
+import Logos.Theme
 
 // Metamask-like multi-chain EVM wallet view. Drives the C++ backend
 // (wallet_ui.rep) over QtRO: PROPs (backend.*Json) auto-sync from the backend,
 // SLOTs are called directly (PROP-updating) or via logos.watch (for a reply).
 // The backend in turn calls wallet_backend_module over the typed modules() client.
+//
+// Styled with the Logos design system (Logos.Controls + Logos.Theme) so it
+// matches the other plugins; the standalone host bundles those QML modules on
+// the import path. Colours/typography/spacing come from the Theme singleton.
 //
 // The sections live on a TabBar + StackLayout. Only the active page's controls
 // are in the visible scene, so headless qt-mcp drives navigation through the
@@ -59,24 +65,37 @@ Item {
     }
     Component.onCompleted: root.ready = root.backend !== null && logos.isViewModuleReady("wallet_ui")
 
+    // Themed background.
+    Rectangle {
+        anchors.fill: parent
+        color: Theme.palette.background
+    }
+
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 12
-        spacing: 8
+        anchors.margins: Theme.spacing.medium
+        spacing: Theme.spacing.small
 
         // ── Header ──
-        Label { text: "Logos Wallet"; font.pixelSize: 22; font.bold: true }
-        Label {
+        LogosText {
+            text: "Logos Wallet"
+            font.pixelSize: Theme.typography.titleText
+            font.weight: Theme.typography.weightBold
+            color: Theme.palette.text
+        }
+        LogosText {
             text: root.ready ? "Connected to backend" : "Connecting to backend…"
-            color: root.ready ? "#2e7d32" : "#f0883e"; font.pixelSize: 12
+            color: root.ready ? Theme.palette.success : Theme.palette.warning
+            font.pixelSize: Theme.typography.secondaryText
         }
 
         // ── Accounts (shared across tabs) ──
-        Label { text: "Accounts"; font.bold: true; Layout.topMargin: 4 }
+        LogosText { text: "Accounts"; font.weight: Theme.typography.weightBold; Layout.topMargin: Theme.spacing.tiny }
         RowLayout {
             Layout.fillWidth: true
-            ComboBox {
+            LogosComboBox {
                 id: acctBox; Layout.fillWidth: true; model: root.accounts
+                placeholderText: "No accounts"
                 onActivated: backend.selectedAccount = root.accounts[currentIndex]
                 // Auto-select the first account once accounts load, so backend
                 // events (balances/history) target it without a manual pick.
@@ -86,29 +105,29 @@ Item {
                     backend.selectedAccount = root.accounts[0]
                 }
             }
-            Button {
+            LogosButton {
                 text: backend && backend.accountUnlocked ? "Lock" : "Unlock"
                 enabled: root.ready && acctBox.currentText.length > 0
                 onClicked: backend && backend.accountUnlocked
                            ? backend.lock(acctBox.currentText)
                            : unlockDialog.open()
             }
-            Button { text: "New"; enabled: root.ready; onClicked: createDialog.open() }
+            LogosButton { text: "New"; enabled: root.ready; onClicked: createDialog.open() }
         }
 
         // ── Tabs ──
-        TabBar {
+        LogosTabBar {
             id: tabs
             objectName: "walletTabs"
             Layout.fillWidth: true
-            TabButton { text: "Balances" }
-            TabButton { text: "Market" }
-            TabButton { text: "Send" }
-            TabButton { text: "Tokens" }
-            TabButton { text: "History" }
-            TabButton { text: "Private" }
-            TabButton { text: "Settings" }
-            TabButton { text: "Advanced" }
+            LogosTabButton { text: "Balances" }
+            LogosTabButton { text: "Market" }
+            LogosTabButton { text: "Send" }
+            LogosTabButton { text: "Tokens" }
+            LogosTabButton { text: "History" }
+            LogosTabButton { text: "Private" }
+            LogosTabButton { text: "Settings" }
+            LogosTabButton { text: "Advanced" }
         }
 
         StackLayout {
@@ -118,30 +137,30 @@ Item {
             currentIndex: tabs.currentIndex
 
             // ── 0 · Balances ──
-            ScrollView {
+            LogosScrollView {
                 clip: true
                 ColumnLayout {
                     width: pages.width - 16
-                    spacing: 8
+                    spacing: Theme.spacing.small
                     RowLayout {
                         Layout.fillWidth: true
-                        Label { text: "Balances"; font.bold: true; Layout.fillWidth: true }
-                        Button {
+                        LogosText { text: "Balances"; font.weight: Theme.typography.weightBold; Layout.fillWidth: true }
+                        LogosButton {
                             text: "Refresh balances"; enabled: root.ready && acctBox.currentText.length > 0
                             onClicked: backend.refreshBalances(acctBox.currentText)
                         }
                     }
                     Repeater {
                         model: root.balances && root.balances.chains ? root.balances.chains : []
-                        Frame {
+                        LogosFrame {
                             Layout.fillWidth: true
                             ColumnLayout {
                                 anchors.fill: parent
-                                Label { text: "chain " + modelData.chainId; font.bold: true }
-                                Label { text: "native: " + modelData.native }
+                                LogosText { text: "chain " + modelData.chainId; font.weight: Theme.typography.weightBold }
+                                LogosText { text: "native: " + modelData.native }
                                 Repeater {
                                     model: modelData.tokens || []
-                                    Label { font.pixelSize: 12; color: "#555"; text: modelData.balance + "  " + modelData.address }
+                                    LogosText { font.pixelSize: Theme.typography.secondaryText; color: Theme.palette.textSecondary; text: modelData.balance + "  " + modelData.address }
                                 }
                             }
                         }
@@ -150,15 +169,15 @@ Item {
             }
 
             // ── 1 · Market (Uniswap prices for held tokens, balance > 0) ──
-            ScrollView {
+            LogosScrollView {
                 clip: true
                 ColumnLayout {
                     width: pages.width - 16
-                    spacing: 8
+                    spacing: Theme.spacing.small
                     RowLayout {
                         Layout.fillWidth: true
-                        Label { text: "Market"; font.bold: true; Layout.fillWidth: true }
-                        Button {
+                        LogosText { text: "Market"; font.weight: Theme.typography.weightBold; Layout.fillWidth: true }
+                        LogosButton {
                             text: "Refresh market"; enabled: root.ready && acctBox.currentText.length > 0
                             onClicked: backend.refreshMarket(acctBox.currentText)
                         }
@@ -167,18 +186,18 @@ Item {
                         model: root.market
                         ColumnLayout {
                             Layout.fillWidth: true
-                            Label { text: "chain " + modelData.chainId; font.pixelSize: 11; color: "#888" }
+                            LogosText { text: "chain " + modelData.chainId; font.pixelSize: Theme.typography.secondaryText; color: Theme.palette.textTertiary }
                             Repeater {
                                 model: modelData.items || []
                                 RowLayout {
                                     Layout.fillWidth: true
-                                    Label { text: modelData.symbol; font.bold: true; Layout.preferredWidth: 64 }
-                                    Label {
-                                        Layout.fillWidth: true; font.pixelSize: 12; color: "#555"
+                                    LogosText { text: modelData.symbol; font.weight: Theme.typography.weightBold; Layout.preferredWidth: 64 }
+                                    LogosText {
+                                        Layout.fillWidth: true; font.pixelSize: Theme.typography.secondaryText; color: Theme.palette.textSecondary
                                         text: modelData.usd != null ? ("$" + Number(modelData.usd).toFixed(2)) : "—"
                                     }
-                                    Label {
-                                        font.pixelSize: 12; color: "#2e7d32"
+                                    LogosText {
+                                        font.pixelSize: Theme.typography.secondaryText; color: Theme.palette.success
                                         text: modelData.valueUsd != null ? ("$" + Number(modelData.valueUsd).toFixed(2)) : ""
                                     }
                                 }
@@ -189,33 +208,34 @@ Item {
             }
 
             // ── 2 · Send ──
-            ScrollView {
+            LogosScrollView {
                 clip: true
                 ColumnLayout {
                     width: pages.width - 16
-                    spacing: 8
-                    Label { text: "Send"; font.bold: true }
-                    ComboBox {
+                    spacing: Theme.spacing.small
+                    LogosText { text: "Send"; font.weight: Theme.typography.weightBold }
+                    LogosComboBox {
                         id: sendChain; Layout.fillWidth: true; textRole: "name"; model: root.chains
+                        placeholderText: "Network"
                         // Picking a chain here clears the Advanced-tab override.
                         onActivated: root.overrideChainId = 0
                     }
-                    Label {
-                        visible: root.overrideChainId > 0; color: "#2e7d32"; font.pixelSize: 11
+                    LogosText {
+                        visible: root.overrideChainId > 0; color: Theme.palette.success; font.pixelSize: Theme.typography.secondaryText
                         text: "Active network: chain " + root.overrideChainId + " (set on Advanced)"
                     }
-                    CheckBox { id: isErc20; text: "ERC20 token" }
-                    TextField { id: tokenAddr; Layout.fillWidth: true; visible: isErc20.checked; placeholderText: "Token contract address" }
-                    TextField { id: toAddr; objectName: "sendToField"; Layout.fillWidth: true; placeholderText: "Recipient address (0x…)" }
-                    TextField { id: amount; objectName: "sendAmountField"; Layout.fillWidth: true; placeholderText: "Amount (base units / wei)" }
+                    LogosCheckbox { id: isErc20; text: "ERC20 token" }
+                    LogosTextField { id: tokenAddr; Layout.fillWidth: true; visible: isErc20.checked; placeholderText: "Token contract address" }
+                    LogosTextField { id: toAddr; objectName: "sendToField"; Layout.fillWidth: true; placeholderText: "Recipient address (0x…)" }
+                    LogosTextField { id: amount; objectName: "sendAmountField"; Layout.fillWidth: true; placeholderText: "Amount (base units / wei)" }
                     RowLayout {
-                        Button {
+                        LogosButton {
                             text: "Estimate"; enabled: root.ready
                             onClicked: logos.watch(backend.estimateFee(JSON.stringify(buildSend())),
                                                    function (r) { feePreview.text = "fee: " + r },
                                                    function (e) { feePreview.text = "estimate failed" })
                         }
-                        Button {
+                        LogosButton {
                             text: "Send transaction"; enabled: root.ready && backend && backend.accountUnlocked
                             onClicked: {
                                 var m = isErc20.checked ? backend.sendErc20(JSON.stringify(buildSend()))
@@ -224,49 +244,49 @@ Item {
                             }
                         }
                     }
-                    Label { id: feePreview; color: "#777"; font.pixelSize: 12 }
+                    LogosText { id: feePreview; color: Theme.palette.textSecondary; font.pixelSize: Theme.typography.secondaryText }
                 }
             }
 
             // ── 3 · Tokens ──
-            ScrollView {
+            LogosScrollView {
                 clip: true
                 ColumnLayout {
                     width: pages.width - 16
-                    spacing: 8
+                    spacing: Theme.spacing.small
                     RowLayout {
                         Layout.fillWidth: true
-                        Label { text: "Tokens"; font.bold: true; Layout.fillWidth: true }
-                        Button {
+                        LogosText { text: "Tokens"; font.weight: Theme.typography.weightBold; Layout.fillWidth: true }
+                        LogosButton {
                             text: "Load tokens"; enabled: root.ready
                             onClicked: backend.loadTokens(root.chains.length ? root.chains[sendChain.currentIndex].chainId : 1)
                         }
                     }
                     Repeater {
                         model: root.tokens
-                        Label { font.pixelSize: 12; text: (modelData.symbol || "?") + "  " + (modelData.name || "") + "  " + modelData.address }
+                        LogosText { font.pixelSize: Theme.typography.secondaryText; text: (modelData.symbol || "?") + "  " + (modelData.name || "") + "  " + modelData.address }
                     }
-                    Button { text: "Add custom token"; enabled: root.ready; onClicked: addTokenDialog.open() }
+                    LogosButton { text: "Add custom token"; enabled: root.ready; onClicked: addTokenDialog.open() }
                 }
             }
 
             // ── 4 · History ──
-            ScrollView {
+            LogosScrollView {
                 clip: true
                 ColumnLayout {
                     width: pages.width - 16
-                    spacing: 8
+                    spacing: Theme.spacing.small
                     RowLayout {
                         Layout.fillWidth: true
-                        Label { text: "Recent activity"; font.bold: true; Layout.fillWidth: true }
-                        Button {
+                        LogosText { text: "Recent activity"; font.weight: Theme.typography.weightBold; Layout.fillWidth: true }
+                        LogosButton {
                             text: "Refresh history"; enabled: root.ready && acctBox.currentText.length > 0
                             onClicked: backend.refreshHistory(acctBox.currentText)
                         }
                     }
-                    Label {
+                    LogosText {
                         visible: !root.history || root.history.length === 0
-                        text: "No transactions yet"; color: "#888"; font.pixelSize: 12
+                        text: "No transactions yet"; color: Theme.palette.textTertiary; font.pixelSize: Theme.typography.secondaryText
                     }
                     Repeater {
                         model: root.history
@@ -274,57 +294,58 @@ Item {
                             Layout.fillWidth: true
                             // Separate labels so each field is its own text node
                             // (kind/status are assertable verbatim in UI tests).
-                            Label { text: modelData.kind; font.bold: true; font.pixelSize: 12; Layout.preferredWidth: 64 }
-                            Label {
-                                text: modelData.status; font.pixelSize: 12
-                                color: modelData.status === "confirmed" ? "#2e7d32" : (modelData.status === "failed" ? "#c62828" : "#f9a825")
+                            LogosText { text: modelData.kind; font.weight: Theme.typography.weightBold; font.pixelSize: Theme.typography.secondaryText; Layout.preferredWidth: 64 }
+                            LogosText {
+                                text: modelData.status; font.pixelSize: Theme.typography.secondaryText
+                                color: modelData.status === "confirmed" ? Theme.palette.success : (modelData.status === "failed" ? Theme.palette.error : Theme.palette.warning)
                             }
-                            Label { text: modelData.hash; font.pixelSize: 12; Layout.fillWidth: true; elide: Text.ElideMiddle; color: "#555" }
+                            LogosText { text: modelData.hash; font.pixelSize: Theme.typography.secondaryText; Layout.fillWidth: true; elide: Text.ElideMiddle; color: Theme.palette.textSecondary }
                         }
                     }
                 }
             }
 
             // ── 5 · Private (RAILGUN — UNAUDITED upstream, Sepolia-first) ──
-            ScrollView {
+            LogosScrollView {
                 clip: true
                 ColumnLayout {
                     width: pages.width - 16
-                    spacing: 8
+                    spacing: Theme.spacing.small
 
                     // Prominent unaudited / testnet warning.
-                    Frame {
+                    LogosFrame {
                         Layout.fillWidth: true
-                        background: Rectangle { color: "#fff3e0"; border.color: "#ef6c00"; radius: 4 }
+                        backgroundColor: Theme.palette.surfaceRaised
+                        borderColor: Theme.palette.warning
                         ColumnLayout {
                             anchors.fill: parent
-                            Label { text: "⚠ Private transactions (RAILGUN)"; font.bold: true; color: "#e65100" }
-                            Label {
-                                Layout.fillWidth: true; wrapMode: Text.WordWrap; font.pixelSize: 11; color: "#bf360c"
+                            LogosText { text: "⚠ Private transactions (RAILGUN)"; font.weight: Theme.typography.weightBold; color: Theme.palette.warning }
+                            LogosText {
+                                Layout.fillWidth: true; wrapMode: Text.WordWrap; font.pixelSize: Theme.typography.secondaryText; color: Theme.palette.textSecondary
                                 text: "Experimental. The underlying engine is UNAUDITED — use on Sepolia (testnet) only; " +
                                       "do not move mainnet funds here. Proving a private send can take a while."
                             }
                         }
                     }
 
-                    ComboBox { id: privChain; Layout.fillWidth: true; textRole: "name"; model: root.chains }
+                    LogosComboBox { id: privChain; Layout.fillWidth: true; textRole: "name"; model: root.chains; placeholderText: "Network" }
 
                     // Enable the private account + show the 0zk address.
                     RowLayout {
                         Layout.fillWidth: true
-                        Button {
+                        LogosButton {
                             text: backend && backend.zkAddress.length ? "Re-enable" : "Enable private account"
                             enabled: root.ready && backend && backend.accountUnlocked && acctBox.currentText.length > 0
                             onClicked: logos.watch(backend.initPrivate(acctBox.currentText, root.privChainId()),
                                                    function (r) {}, function (e) {})
                         }
-                        Button {
+                        LogosButton {
                             text: "Sync"; enabled: root.ready && backend && backend.zkAddress.length > 0
                             onClicked: backend.syncPrivate()
                         }
                     }
-                    Label {
-                        Layout.fillWidth: true; font.pixelSize: 11; color: "#555"; elide: Text.ElideMiddle
+                    LogosText {
+                        Layout.fillWidth: true; font.pixelSize: Theme.typography.secondaryText; color: Theme.palette.textSecondary; elide: Text.ElideMiddle
                         text: backend && backend.zkAddress.length
                               ? ("0zk: " + backend.zkAddress)
                               : "Not enabled — unlock an account, then enable."
@@ -333,8 +354,8 @@ Item {
                     // Shielded balances.
                     RowLayout {
                         Layout.fillWidth: true
-                        Label { text: "Shielded balance"; font.bold: true; Layout.fillWidth: true }
-                        Button {
+                        LogosText { text: "Shielded balance"; font.weight: Theme.typography.weightBold; Layout.fillWidth: true }
+                        LogosButton {
                             text: "Refresh"; enabled: backend && backend.zkAddress.length > 0
                             onClicked: backend.refreshShieldedBalance()
                         }
@@ -343,23 +364,23 @@ Item {
                         model: root.shielded
                         RowLayout {
                             Layout.fillWidth: true
-                            Label {
-                                font.pixelSize: 12; Layout.fillWidth: true; elide: Text.ElideMiddle
+                            LogosText {
+                                font.pixelSize: Theme.typography.secondaryText; Layout.fillWidth: true; elide: Text.ElideMiddle
                                 text: (modelData.asset && modelData.asset.erc20) ? modelData.asset.erc20 : "asset"
                             }
-                            Label { font.pixelSize: 12; color: "#2e7d32"; text: "" + modelData.amount }
+                            LogosText { font.pixelSize: Theme.typography.secondaryText; color: Theme.palette.success; text: "" + modelData.amount }
                         }
                     }
-                    Label {
+                    LogosText {
                         visible: !root.shielded || root.shielded.length === 0
-                        text: "No shielded balance"; color: "#888"; font.pixelSize: 12
+                        text: "No shielded balance"; color: Theme.palette.textTertiary; font.pixelSize: Theme.typography.secondaryText
                     }
 
                     // Shield (public → private).
-                    Label { text: "Shield (deposit public → private)"; font.bold: true }
-                    TextField { id: shieldAsset; Layout.fillWidth: true; placeholderText: "ERC-20 token address (0x…)" }
-                    TextField { id: shieldAmount; Layout.fillWidth: true; placeholderText: "Amount (base units)" }
-                    Button {
+                    LogosText { text: "Shield (deposit public → private)"; font.weight: Theme.typography.weightBold }
+                    LogosTextField { id: shieldAsset; Layout.fillWidth: true; placeholderText: "ERC-20 token address (0x…)" }
+                    LogosTextField { id: shieldAmount; Layout.fillWidth: true; placeholderText: "Amount (base units)" }
+                    LogosButton {
                         text: "Shield"
                         enabled: root.ready && backend && backend.accountUnlocked && backend.zkAddress.length > 0
                         onClicked: logos.watch(backend.shield(JSON.stringify({
@@ -369,13 +390,13 @@ Item {
                     }
 
                     // Private send — 0zk… → private transfer, 0x… → unshield (via the 4337 relayer).
-                    Label { text: "Private send (the relayer hides the sender)"; font.bold: true }
-                    TextField { id: privTo; Layout.fillWidth: true; placeholderText: "Recipient — 0zk… (private) or 0x… (withdraw)" }
-                    TextField { id: privAsset; Layout.fillWidth: true; placeholderText: "ERC-20 token address (0x…)" }
-                    TextField { id: privAmount; Layout.fillWidth: true; placeholderText: "Amount (base units)" }
-                    TextField { id: privMemo; Layout.fillWidth: true; placeholderText: "Memo (optional — private transfers only)" }
-                    TextField { id: privBundler; Layout.fillWidth: true; placeholderText: "Bundler URL (ERC-4337, Sepolia)" }
-                    Button {
+                    LogosText { text: "Private send (the relayer hides the sender)"; font.weight: Theme.typography.weightBold }
+                    LogosTextField { id: privTo; Layout.fillWidth: true; placeholderText: "Recipient — 0zk… (private) or 0x… (withdraw)" }
+                    LogosTextField { id: privAsset; Layout.fillWidth: true; placeholderText: "ERC-20 token address (0x…)" }
+                    LogosTextField { id: privAmount; Layout.fillWidth: true; placeholderText: "Amount (base units)" }
+                    LogosTextField { id: privMemo; Layout.fillWidth: true; placeholderText: "Memo (optional — private transfers only)" }
+                    LogosTextField { id: privBundler; Layout.fillWidth: true; placeholderText: "Bundler URL (ERC-4337, Sepolia)" }
+                    LogosButton {
                         text: "Send privately"
                         enabled: root.ready && backend && backend.accountUnlocked
                                  && backend.zkAddress.length > 0 && privBundler.text.length > 0
@@ -389,15 +410,15 @@ Item {
             }
 
             // ── 6 · Settings (privacy / proxy) ──
-            ScrollView {
+            LogosScrollView {
                 clip: true
                 ColumnLayout {
                     width: pages.width - 16
-                    spacing: 8
-                    Label { text: "Privacy / proxy"; font.bold: true }
-                    TextField { id: proxyUrl; Layout.fillWidth: true; placeholderText: "socks5h://127.0.0.1:9050" }
-                    CheckBox { id: proxyRequired; text: "Require proxy (fail-closed)" }
-                    Button {
+                    spacing: Theme.spacing.small
+                    LogosText { text: "Privacy / proxy"; font.weight: Theme.typography.weightBold }
+                    LogosTextField { id: proxyUrl; Layout.fillWidth: true; placeholderText: "socks5h://127.0.0.1:9050" }
+                    LogosCheckbox { id: proxyRequired; text: "Require proxy (fail-closed)" }
+                    LogosButton {
                         text: "Apply proxy"; enabled: backend !== null
                         onClicked: backend.setProxyConfig(JSON.stringify({
                             proxy: proxyUrl.text.length ? proxyUrl.text : null,
@@ -408,28 +429,28 @@ Item {
             }
 
             // ── 7 · Advanced (custom networks + account import; dev / testing) ──
-            ScrollView {
+            LogosScrollView {
                 clip: true
                 ColumnLayout {
                     width: pages.width - 16
-                    spacing: 8
+                    spacing: Theme.spacing.small
 
                     // Custom network — add or replace an RPC endpoint (e.g. a local
                     // dev node). Saving repoints the wallet at this chain (set_chains
                     // → eth-rpc) and makes it the active network for sends.
-                    Label { text: "Custom network"; font.bold: true }
-                    Label {
-                        Layout.fillWidth: true; wrapMode: Text.WordWrap; font.pixelSize: 11; color: "#777"
+                    LogosText { text: "Custom network"; font.weight: Theme.typography.weightBold }
+                    LogosText {
+                        Layout.fillWidth: true; wrapMode: Text.WordWrap; font.pixelSize: Theme.typography.secondaryText; color: Theme.palette.textTertiary
                         text: "Add or update an RPC endpoint — e.g. a local node at http://127.0.0.1:8545. " +
                               "Saving repoints the wallet and makes it the active send network."
                     }
-                    TextField { id: advChainId; objectName: "advChainIdField"; Layout.fillWidth: true; placeholderText: "Chain ID (e.g. 31337)" }
-                    TextField { id: advChainName; objectName: "advChainNameField"; Layout.fillWidth: true; placeholderText: "Network name (e.g. Local Anvil)" }
-                    TextField { id: advRpcUrl; objectName: "advRpcUrlField"; Layout.fillWidth: true; placeholderText: "RPC URL (http://127.0.0.1:8545)" }
-                    TextField { id: advSymbol; objectName: "advSymbolField"; Layout.fillWidth: true; placeholderText: "Native symbol (e.g. ETH)" }
-                    TextField { id: advMulticall; objectName: "advMulticallField"; Layout.fillWidth: true; placeholderText: "Multicall3 address (optional, 0x…)" }
+                    LogosTextField { id: advChainId; objectName: "advChainIdField"; Layout.fillWidth: true; placeholderText: "Chain ID (e.g. 31337)" }
+                    LogosTextField { id: advChainName; objectName: "advChainNameField"; Layout.fillWidth: true; placeholderText: "Network name (e.g. Local Anvil)" }
+                    LogosTextField { id: advRpcUrl; objectName: "advRpcUrlField"; Layout.fillWidth: true; placeholderText: "RPC URL (http://127.0.0.1:8545)" }
+                    LogosTextField { id: advSymbol; objectName: "advSymbolField"; Layout.fillWidth: true; placeholderText: "Native symbol (e.g. ETH)" }
+                    LogosTextField { id: advMulticall; objectName: "advMulticallField"; Layout.fillWidth: true; placeholderText: "Multicall3 address (optional, 0x…)" }
                     RowLayout {
-                        Button {
+                        LogosButton {
                             text: "Test endpoint"; enabled: root.ready && advChainId.text.length > 0 && advRpcUrl.text.length > 0
                             // Push the entered endpoint into eth-rpc first (idempotent), then verify
                             // it — so Test works on a not-yet-saved network (verify what you typed).
@@ -444,7 +465,7 @@ Item {
                                     function (e) { advResult.text = "Endpoint error" })
                             }
                         }
-                        Button {
+                        LogosButton {
                             text: "Save chain"; enabled: root.ready && advChainId.text.length > 0 && advRpcUrl.text.length > 0
                             onClicked: {
                                 backend.setChains(JSON.stringify(root.upsertChain()))
@@ -452,13 +473,13 @@ Item {
                             }
                         }
                     }
-                    Label { id: advResult; Layout.fillWidth: true; wrapMode: Text.WordWrap; color: "#777"; font.pixelSize: 12 }
+                    LogosText { id: advResult; Layout.fillWidth: true; wrapMode: Text.WordWrap; color: Theme.palette.textSecondary; font.pixelSize: Theme.typography.secondaryText }
 
-                    Label { text: "Configured networks"; font.bold: true; Layout.topMargin: 8 }
+                    LogosText { text: "Configured networks"; font.weight: Theme.typography.weightBold; Layout.topMargin: Theme.spacing.small }
                     Repeater {
                         model: root.chains
-                        Label {
-                            Layout.fillWidth: true; elide: Text.ElideRight; font.pixelSize: 12; color: "#555"
+                        LogosText {
+                            Layout.fillWidth: true; elide: Text.ElideRight; font.pixelSize: Theme.typography.secondaryText; color: Theme.palette.textSecondary
                             text: modelData.chainId + " · " + modelData.name + " · " + modelData.rpcUrl
                         }
                     }
@@ -467,12 +488,12 @@ Item {
                     // (no modal) so the whole wallet flow is scriptable headless.
                     // Signing stays in the keystore module; the seed only transits
                     // to the backend's import call.
-                    Label { text: "Import account (seed phrase)"; font.bold: true; Layout.topMargin: 8 }
-                    TextField { id: advSeed; objectName: "advSeedField"; Layout.fillWidth: true; placeholderText: "Seed phrase (BIP-39 words)" }
-                    TextField { id: advAcctLabel; objectName: "advAcctLabelField"; Layout.fillWidth: true; placeholderText: "Account label (e.g. main)" }
-                    TextField { id: advAcctPw; objectName: "advAcctPwField"; Layout.fillWidth: true; placeholderText: "Account passphrase"; echoMode: TextInput.Password }
+                    LogosText { text: "Import account (seed phrase)"; font.weight: Theme.typography.weightBold; Layout.topMargin: Theme.spacing.small }
+                    LogosTextField { id: advSeed; objectName: "advSeedField"; Layout.fillWidth: true; placeholderText: "Seed phrase (BIP-39 words)" }
+                    LogosTextField { id: advAcctLabel; objectName: "advAcctLabelField"; Layout.fillWidth: true; placeholderText: "Account label (e.g. main)" }
+                    LogosTextField { id: advAcctPw; objectName: "advAcctPwField"; Layout.fillWidth: true; placeholderText: "Account passphrase"; echoMode: TextInput.Password }
                     RowLayout {
-                        Button {
+                        LogosButton {
                             text: "Import"; enabled: root.ready && advSeed.text.length > 0
                             onClicked: logos.watch(backend.importMnemonic(JSON.stringify({
                                     phrase: advSeed.text, accountIndex: 0, password: advAcctPw.text
@@ -480,20 +501,20 @@ Item {
                                 function (r) { advAcctResult.text = "Imported: " + r },
                                 function (e) { advAcctResult.text = "Import failed: " + e })
                         }
-                        Button {
+                        LogosButton {
                             text: "Unlock imported"; enabled: root.ready && acctBox.currentText.length > 0
                             onClicked: backend.unlock(acctBox.currentText, advAcctPw.text)
                         }
                     }
-                    Label { id: advAcctResult; Layout.fillWidth: true; elide: Text.ElideMiddle; color: "#777"; font.pixelSize: 12 }
+                    LogosText { id: advAcctResult; Layout.fillWidth: true; elide: Text.ElideMiddle; color: Theme.palette.textSecondary; font.pixelSize: Theme.typography.secondaryText }
                 }
             }
         }
 
         // ── Status (shared, always visible below the tabs) ──
-        Label {
+        LogosText {
             Layout.fillWidth: true
-            text: backend ? backend.statusText : ""; color: "#555"
+            text: backend ? backend.statusText : ""; color: Theme.palette.textSecondary
         }
     }
 
@@ -538,29 +559,35 @@ Item {
         return out
     }
 
+    // Modals — plain Dialog with a Theme-coloured surface + Logos inner content
+    // (the basecamp pattern); LogosDialog uses left/rightActions rather than
+    // standardButtons, so we keep Dialog here for the simple Ok/Cancel flow.
     Dialog {
         id: unlockDialog; title: "Unlock account"; modal: true; anchors.centerIn: parent
         standardButtons: Dialog.Ok | Dialog.Cancel
-        ColumnLayout { TextField { id: unlockPw; placeholderText: "Passphrase"; echoMode: TextInput.Password } }
+        background: Rectangle { color: Theme.palette.backgroundSecondary; border.color: Theme.palette.borderSubtle; border.width: 1; radius: Theme.spacing.radiusLarge }
+        ColumnLayout { LogosTextField { id: unlockPw; placeholderText: "Passphrase"; echoMode: TextInput.Password } }
         onAccepted: { backend.unlock(acctBox.currentText, unlockPw.text); unlockPw.text = "" }
     }
     Dialog {
         id: createDialog; title: "New account"; modal: true; anchors.centerIn: parent
         standardButtons: Dialog.Ok | Dialog.Cancel
+        background: Rectangle { color: Theme.palette.backgroundSecondary; border.color: Theme.palette.borderSubtle; border.width: 1; radius: Theme.spacing.radiusLarge }
         ColumnLayout {
-            TextField { id: newLabel; placeholderText: "Label" }
-            TextField { id: newPw; placeholderText: "Passphrase"; echoMode: TextInput.Password }
+            LogosTextField { id: newLabel; placeholderText: "Label" }
+            LogosTextField { id: newPw; placeholderText: "Passphrase"; echoMode: TextInput.Password }
         }
         onAccepted: { logos.watch(backend.createAccount(newPw.text, newLabel.text), function (r) {}, function (e) {}); newPw.text = "" }
     }
     Dialog {
         id: addTokenDialog; title: "Add custom token"; modal: true; anchors.centerIn: parent
         standardButtons: Dialog.Ok | Dialog.Cancel
+        background: Rectangle { color: Theme.palette.backgroundSecondary; border.color: Theme.palette.borderSubtle; border.width: 1; radius: Theme.spacing.radiusLarge }
         ColumnLayout {
-            TextField { id: ctChain; placeholderText: "chainId" }
-            TextField { id: ctAddr; placeholderText: "Token address (0x…)" }
-            TextField { id: ctSym; placeholderText: "Symbol" }
-            TextField { id: ctDec; placeholderText: "Decimals" }
+            LogosTextField { id: ctChain; placeholderText: "chainId" }
+            LogosTextField { id: ctAddr; placeholderText: "Token address (0x…)" }
+            LogosTextField { id: ctSym; placeholderText: "Symbol" }
+            LogosTextField { id: ctDec; placeholderText: "Decimals" }
         }
         onAccepted: backend.addCustomToken(JSON.stringify({
             chainId: parseInt(ctChain.text), address: ctAddr.text,
