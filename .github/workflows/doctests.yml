@@ -66,6 +66,7 @@ jobs:
         run: |
           nix run github:logos-co/logos-doctest -- run \
             doctests/wallet-ui-app.test.yaml \
+            doctests/wallet-ui-e2e.test.yaml \
             --verbose \
             --continue-on-fail \
             --release-for logos-evm-wallet-ui=${{ steps.commit.outputs.sha }} \

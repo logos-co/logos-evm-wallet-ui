@@ -14,10 +14,15 @@ intro: |
   (`QT_QPA_PLATFORM=offscreen`) and drives it through the QML inspector with
   [`logos-qt-mcp`](https://github.com/logos-co/logos-qt-mcp): it waits for the UI
   to come up, **navigates every tab** (Balances → Market → Send → Tokens →
-  History → Settings) through the view's `selectTab` helper, and on the Settings
-  tab applies a SOCKS5 proxy — a real `set_proxy_config` round-trip into the
-  bundled backend that flips the status to **Proxy applied** — capturing
-  screenshots along the way.
+  History → Private → Settings → Advanced) through the view's `selectTab` helper,
+  and on the Settings tab applies a SOCKS5 proxy — a real `set_proxy_config`
+  round-trip into the bundled backend that flips the status to **Proxy applied** —
+  capturing screenshots along the way.
+
+  > For the full transactional flow driven through the UI — pointing the wallet at
+  > a local node on the **Advanced** tab, then importing an account, unlocking it,
+  > and sending — see the companion
+  > [`wallet-ui-e2e`](./wallet-ui-e2e.md) doc-test.
 
 what_you_build: "The `logos-evm-wallet-ui` standalone app, launched headless and driven through its QML UI against the bundled wallet backend."
 
@@ -164,6 +169,17 @@ sections:
               texts: ["Proxy applied"]
               timeout: 30000
               screenshot: "wallet-ui-applied.png"
+            - name: "Switch to the Advanced tab"
+              action: call_method
+              find_by: "objectName"
+              find_value: "walletRoot"
+              method: "selectTab"
+              args: [7]
+            - name: "Advanced tab rendered"
+              action: wait_for
+              texts: ["Custom network"]
+              timeout: 15000
+              screenshot: "wallet-ui-advanced.png"
         post_text: |
           A rendered, interactive UI whose **Apply proxy** action flips the status
           to *Proxy applied* is end-to-end proof that the QML view, the bundled

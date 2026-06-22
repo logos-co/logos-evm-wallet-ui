@@ -1,0 +1,241 @@
+name: "Wallet UI end-to-end: configure a network, import, unlock, send"
+output: wallet-ui-e2e.md
+release: ""
+
+intro: |
+  This doc-test drives the `logos-evm-wallet-ui` standalone app **headless**
+  through a full wallet flow — the same end-to-end validation the
+  [`wallet-backend` runtime doc-test](https://github.com/logos-co/logos-evm-wallet-backend-module)
+  performs against the coordinator, but here **every step goes through the real
+  QML UI** over the Logos bridge.
+
+  It launches the app with `QT_QPA_PLATFORM=offscreen`, drives it with
+  [`logos-qt-mcp`](https://github.com/logos-co/logos-qt-mcp), and on the new
+  **Advanced** tab points the wallet at a **local mock JSON-RPC node**, then
+  imports Foundry's well-known test account, unlocks it, sends a native transfer,
+  and confirms it lands in History — proving the UI → C++ backend →
+  `wallet_backend_module` → eth-rpc / keystore round-trips end to end.
+
+what_you_build: "The wallet UI standalone app, launched headless and driven through its Advanced, Send, and History tabs against a local mock JSON-RPC node."
+
+what_you_learn:
+  - How the Advanced tab repoints the wallet at a custom RPC endpoint (setChains / testEndpoint)
+  - How to import and unlock an account and send a native transfer entirely through the UI
+  - How a UI-initiated send composes build → sign → broadcast → record across the backend module tree
+
+prerequisites:
+  - |
+    **Nix** with flakes enabled (see [nixos.org](https://nixos.org/download.html)).
+  - "**A Linux or macOS machine** with `python3` available (for the local mock JSON-RPC node). The app runs headless via `QT_QPA_PLATFORM=offscreen`, so no display is required."
+
+sections:
+  - title: "Build the qt-mcp test driver"
+    step: true
+    text: |
+      [`logos-qt-mcp`](https://github.com/logos-co/logos-qt-mcp) connects to the
+      app's QML inspector and drives it. Build it once and link it as
+      `./result-mcp`.
+    steps:
+      - title: "Build logos-qt-mcp"
+        run: "nix build 'github:logos-co/logos-qt-mcp' -o result-mcp"
+        check_file: "result-mcp"
+
+  - title: "Start a local mock JSON-RPC node"
+    step: true
+    text: |
+      The wallet is pointed at this node (chain id 1337) from the UI's Advanced
+      tab. It answers the methods the send pipeline needs with canned values, so
+      the run is offline and deterministic.
+    steps:
+      - title: "Write the mock node"
+        file:
+          path: mock_node.py
+          content: |
+            import http.server, json
+            RES = {
+                "eth_chainId": "0x539",                 # 1337
+                "eth_getTransactionCount": "0x0",
+                "eth_gasPrice": "0x3b9aca00",
+                "eth_estimateGas": "0x5208",
+                "eth_sendRawTransaction": "0x" + "ab" * 32,
+            }
+            class H(http.server.BaseHTTPRequestHandler):
+                def do_POST(self):
+                    n = int(self.headers.get('content-length', 0))
+                    req = json.loads(self.rfile.read(n) or b'{}')
+                    body = json.dumps({"jsonrpc": "2.0", "id": req.get("id", 1),
+                                       "result": RES.get(req.get("method"), "0x0")}).encode()
+                    self.send_response(200)
+                    self.send_header('content-length', str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+                def log_message(self, *a): pass
+            http.server.HTTPServer(('127.0.0.1', 8613), H).serve_forever()
+      - title: "Start the mock node"
+        # Record the PID so cleanup can kill it by number — never `pkill -f`, whose
+        # pattern can self-match the runner's own argv.
+        run: "sh -c 'python3 mock_node.py > mock.log 2>&1 & echo $! > mock.pid'"
+        code_block: "python3 mock_node.py &"
+      - run: "sleep 2"
+
+  - title: "Launch the wallet UI and drive the full flow"
+    step: true
+    text: |
+      Launch the standalone app with `nix run`. It bundles
+      `wallet_backend_module` and its dependency modules and auto-loads them, so a
+      UI that can drive a send is itself proof the whole module tree is wired.
+
+      > The first launch builds the full app bundle (the UI plugin, the backend and
+      > its dependencies, and the standalone-app shell), so we allow a generous
+      > timeout.
+    steps:
+      - title: "Drive the app: Advanced → Send → History"
+        ui_test:
+          # --height 1000 keeps every page's controls comfortably on-screen (qt-mcp
+          # clicks an element's scene position and cannot scroll). launch_timeout is
+          # generous because the whole app bundle builds during launch.
+          launch: "nix run github:logos-co/logos-evm-wallet-ui{release} --no-write-lock-file -- --height 1000"
+          qt_mcp: "result-mcp"
+          build_timeout: 2400
+          launch_timeout: 2400
+          tests:
+            - name: "App window opens on the Balances tab"
+              action: wait_for
+              texts: ["Logos Wallet", "Accounts"]
+              timeout: 30000
+              screenshot: "wallet-ui-e2e-launch.png"
+
+            # ── Advanced tab: point the wallet at the local mock node ──
+            - name: "Switch to the Advanced tab"
+              action: call_method
+              find_by: "objectName"
+              find_value: "walletRoot"
+              method: "selectTab"
+              args: [7]
+            - name: "Advanced tab rendered"
+              action: wait_for
+              texts: ["Custom network"]
+              timeout: 15000
+            - name: "Enter the chain id"
+              action: set_text
+              find_by: "objectName"
+              find_value: "advChainIdField"
+              value: "1337"
+            - name: "Enter the network name"
+              action: set_text
+              find_by: "objectName"
+              find_value: "advChainNameField"
+              value: "Local Mock"
+            - name: "Enter the RPC URL (the local mock node)"
+              action: set_text
+              find_by: "objectName"
+              find_value: "advRpcUrlField"
+              value: "http://127.0.0.1:8613"
+            - name: "Enter the native symbol"
+              action: set_text
+              find_by: "objectName"
+              find_value: "advSymbolField"
+              value: "ETH"
+            - name: "Test the endpoint (UI → backend → eth-rpc → mock node)"
+              action: click
+              target: "Test endpoint"
+            - name: "Endpoint is reachable"
+              action: wait_for
+              texts: ["Endpoint reachable"]
+              timeout: 30000
+              text: "The custom RPC round-trips: the UI calls `testEndpoint`, the backend asks eth-rpc for `eth_chainId`, and the mock answers."
+              screenshot: "wallet-ui-e2e-test-endpoint.png"
+            - name: "Save the chain (repoints the wallet)"
+              action: click
+              target: "Save chain"
+            - name: "Chain saved (status flips)"
+              action: wait_for
+              texts: ["Chains updated"]
+              timeout: 15000
+
+            # ── Import + unlock Foundry's well-known test account ──
+            - name: "Enter the seed phrase"
+              action: set_text
+              find_by: "objectName"
+              find_value: "advSeedField"
+              value: "test test test test test test test test test test test junk"
+            - name: "Enter the account passphrase"
+              action: set_text
+              find_by: "objectName"
+              find_value: "advAcctPwField"
+              value: "pw"
+            - name: "Import the account"
+              action: click
+              target: "Import"
+            - name: "Account imported (status flips)"
+              action: wait_for
+              texts: ["Account imported"]
+              timeout: 20000
+              screenshot: "wallet-ui-e2e-import.png"
+            - name: "Unlock the imported account"
+              action: click
+              target: "Unlock imported"
+            - name: "Account unlocked (status flips)"
+              action: wait_for
+              texts: ["Unlocked"]
+              timeout: 15000
+
+            # ── Send a native transfer through the Send tab ──
+            - name: "Switch to the Send tab"
+              action: call_method
+              find_by: "objectName"
+              find_value: "walletRoot"
+              method: "selectTab"
+              args: [2]
+            - name: "Send tab rendered"
+              action: wait_for
+              texts: ["Estimate"]
+              timeout: 15000
+            - name: "Enter the recipient (Foundry account #1)"
+              action: set_text
+              find_by: "objectName"
+              find_value: "sendToField"
+              value: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+            - name: "Enter the amount (1 ETH in wei, hex)"
+              action: set_text
+              find_by: "objectName"
+              find_value: "sendAmountField"
+              value: "0xde0b6b3a7640000"
+            - name: "Send (build → sign → broadcast → record)"
+              action: click
+              target: "Send transaction"
+            - name: "Native transfer submitted (status flips)"
+              action: wait_for
+              texts: ["Native transfer submitted"]
+              timeout: 30000
+              screenshot: "wallet-ui-e2e-send.png"
+
+            # ── Confirm it lands in History ──
+            - name: "Switch to the History tab"
+              action: call_method
+              find_by: "objectName"
+              find_value: "walletRoot"
+              method: "selectTab"
+              args: [4]
+            - name: "Refresh history"
+              action: click
+              target: "Refresh history"
+            - name: "The transaction is in history"
+              action: wait_for
+              texts: ["native", "pending"]
+              timeout: 20000
+              text: "A `native` transfer recorded as `pending` — proof the send was built, signed, broadcast, and recorded, all driven through the UI."
+              screenshot: "wallet-ui-e2e-history.png"
+        post_text: |
+          A native transfer initiated entirely through the QML UI — pointed at a
+          local node on the **Advanced** tab, imported + unlocked there, signed by
+          the bundled keystore, broadcast via eth-rpc, and surfaced in **History**
+          — is end-to-end proof that the wallet UI and its whole backend module
+          tree are wired together over the Logos bridge.
+
+  - title: "Stop the mock node"
+    step: true
+    steps:
+      - title: "Kill the mock node by PID"
+        run: 'kill "$(cat mock.pid 2>/dev/null)" 2>/dev/null || true'
+      - run: "sleep 1"
