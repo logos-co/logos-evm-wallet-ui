@@ -91,10 +91,13 @@ sections:
     steps:
       - title: "Drive the app: Advanced → Send → History"
         ui_test:
-          # --height 1000 keeps every page's controls comfortably on-screen (qt-mcp
-          # clicks an element's scene position and cannot scroll). launch_timeout is
-          # generous because the whole app bundle builds during launch.
-          launch: "nix run github:logos-co/logos-evm-wallet-ui{release} --no-write-lock-file -- --height 1000"
+          # --height 2000 keeps every page's controls on-screen: qt-mcp clicks an
+          # element's scene position and CANNOT scroll, and the design-system
+          # restyle makes the Advanced tab tall enough that its "Import"/"Unlock"
+          # buttons fall below a 1000px viewport (the page is offscreen, so a tall
+          # window is free). launch_timeout is generous because the whole app
+          # bundle builds during launch.
+          launch: "nix run github:logos-co/logos-evm-wallet-ui{release} --no-write-lock-file -- --height 2000"
           qt_mcp: "result-mcp"
           build_timeout: 2400
           launch_timeout: 2400
