@@ -70,7 +70,14 @@ sections:
           # runners (--height is exposed by logos-standalone-app). launch_timeout is
           # generous because the app bundle (UI plugin + the whole
           # wallet_backend_module dependency tree) builds during launch.
-          launch: "nix run github:logos-co/logos-evm-wallet-ui{release} --no-write-lock-file -- --height 1000"
+          # --user-dir keeps this run's module state in the doctest workdir.
+          # The standalone app persists module state under the platform
+          # app-data location by default (logos-standalone-app #27), so
+          # without this every run — and the other spec in this suite —
+          # would inherit the previous one's chain config, including mock
+          # RPC endpoints that are already dead. The app then blocks
+          # verifying those endpoints at startup and the UI never appears.
+          launch: "nix run github:logos-co/logos-evm-wallet-ui{release} --no-write-lock-file -- --height 1000 --user-dir ./session"
           qt_mcp: "result-mcp"
           build_timeout: 2400
           launch_timeout: 2400
