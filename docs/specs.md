@@ -509,7 +509,7 @@ The `buildSend()` helper composes the `SendParams` JSON from the Send-tab fields
 | `view` | `qml/WalletView.qml` | The QML view loaded by the host. |
 | `dependencies` | `["eth_rpc_module","keystore_module","token_list_module","uniswap_module","wallet_backend_module"]` | Drives `wallet_backend_module`; the rest are declared so the bundled app auto-loads the full tree. |
 | `codegen.rep` | `src/wallet_ui.rep` | The QtRO contract `repc` compiles. |
-| `nix.packages.runtime` | `qt6.qtdeclarative`, `zstd`, `krb5`, `abseil-cpp` | Qt Quick + transitive runtime libs. |
+| `nix.packages.runtime` | `qt6.qtdeclarative`, `zstd`, `abseil-cpp` | Qt Quick + transitive runtime libs. |
 
 ### JSON shapes exchanged with the backend
 
