@@ -71,6 +71,15 @@ Item {
         color: Theme.palette.background
     }
 
+    // Drives a raised signing request to completion. The decision itself happens
+    // in the Signer app; this only asks the backend whether it has landed yet.
+    Timer {
+        interval: 1000
+        repeat: true
+        running: root.ready && backend && backend.pendingRequestId !== ""
+        onTriggered: backend.sendStatus(backend.pendingRequestId)
+    }
+
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: Theme.spacing.medium
@@ -105,12 +114,13 @@ Item {
                     backend.selectedAccount = root.accounts[0]
                 }
             }
-            LogosButton {
-                text: backend && backend.accountUnlocked ? "Lock" : "Unlock"
-                enabled: root.ready && acctBox.currentText.length > 0
-                onClicked: backend && backend.accountUnlocked
-                           ? backend.lock(acctBox.currentText)
-                           : unlockDialog.open()
+            // There is no unlock any more: this wallet never holds a vault
+            // password. When a send needs a signature, the human approves it in
+            // the Signer app; this only reports that one is waiting.
+            LogosText {
+                visible: root.ready && backend && backend.pendingRequestId !== ""
+                text: "Waiting for approval in the Signer app"
+                textFormat: Text.PlainText
             }
             LogosButton { text: "New"; enabled: root.ready; onClicked: createDialog.open() }
         }
@@ -236,7 +246,7 @@ Item {
                                                    function (e) { feePreview.text = "estimate failed" })
                         }
                         LogosButton {
-                            text: "Send transaction"; enabled: root.ready && backend && backend.accountUnlocked
+                            text: "Send transaction"; enabled: root.ready && backend && backend.pendingRequestId === ""
                             onClicked: {
                                 var m = isErc20.checked ? backend.sendErc20(JSON.stringify(buildSend()))
                                                         : backend.sendNative(JSON.stringify(buildSend()))
@@ -335,7 +345,7 @@ Item {
                         Layout.fillWidth: true
                         LogosButton {
                             text: backend && backend.zkAddress.length ? "Re-enable" : "Enable private account"
-                            enabled: root.ready && backend && backend.accountUnlocked && acctBox.currentText.length > 0
+                            enabled: root.ready && backend && backend.pendingRequestId === "" && acctBox.currentText.length > 0
                             onClicked: logos.watch(backend.initPrivate(acctBox.currentText, root.privChainId()),
                                                    function (r) {}, function (e) {})
                         }
@@ -382,7 +392,7 @@ Item {
                     LogosTextField { id: shieldAmount; Layout.fillWidth: true; placeholderText: "Amount (base units)" }
                     LogosButton {
                         text: "Shield"
-                        enabled: root.ready && backend && backend.accountUnlocked && backend.zkAddress.length > 0
+                        enabled: root.ready && backend && backend.pendingRequestId === "" && backend.zkAddress.length > 0
                         onClicked: logos.watch(backend.shield(JSON.stringify({
                             from: acctBox.currentText, chainId: root.privChainId(),
                             asset: shieldAsset.text, amount: shieldAmount.text
@@ -398,7 +408,7 @@ Item {
                     LogosTextField { id: privBundler; Layout.fillWidth: true; placeholderText: "Bundler URL (ERC-4337, Sepolia)" }
                     LogosButton {
                         text: "Send privately"
-                        enabled: root.ready && backend && backend.accountUnlocked
+                        enabled: root.ready && backend && backend.pendingRequestId === ""
                                  && backend.zkAddress.length > 0 && privBundler.text.length > 0
                         onClicked: logos.watch(backend.privateSend(JSON.stringify({
                             from: acctBox.currentText, chainId: root.privChainId(), to: privTo.text,
@@ -503,7 +513,7 @@ Item {
                         }
                         LogosButton {
                             text: "Unlock imported"; enabled: root.ready && acctBox.currentText.length > 0
-                            onClicked: backend.unlock(acctBox.currentText, advAcctPw.text)
+                            onClicked: {} // removed: unlocking no longer exists
                         }
                     }
                     LogosText { id: advAcctResult; Layout.fillWidth: true; elide: Text.ElideMiddle; color: Theme.palette.textSecondary; font.pixelSize: Theme.typography.secondaryText }
@@ -562,13 +572,6 @@ Item {
     // Modals — plain Dialog with a Theme-coloured surface + Logos inner content
     // (the basecamp pattern); LogosDialog uses left/rightActions rather than
     // standardButtons, so we keep Dialog here for the simple Ok/Cancel flow.
-    Dialog {
-        id: unlockDialog; title: "Unlock account"; modal: true; anchors.centerIn: parent
-        standardButtons: Dialog.Ok | Dialog.Cancel
-        background: Rectangle { color: Theme.palette.backgroundSecondary; border.color: Theme.palette.borderSubtle; border.width: 1; radius: Theme.spacing.radiusLarge }
-        ColumnLayout { LogosTextField { id: unlockPw; placeholderText: "Passphrase"; echoMode: TextInput.Password } }
-        onAccepted: { backend.unlock(acctBox.currentText, unlockPw.text); unlockPw.text = "" }
-    }
     Dialog {
         id: createDialog; title: "New account"; modal: true; anchors.centerIn: parent
         standardButtons: Dialog.Ok | Dialog.Cancel

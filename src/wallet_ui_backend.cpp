@@ -80,22 +80,6 @@ void WalletUiBackend::refreshAccounts()
     setAccountsJson(modules().wallet_backend_module.list_accounts());
 }
 
-bool WalletUiBackend::unlock(QString address, QString passphrase)
-{
-    bool ok = modules().wallet_backend_module.unlock(address, passphrase);
-    setAccountUnlocked(ok);
-    setStatusText(ok ? QStringLiteral("Unlocked") : QStringLiteral("Wrong passphrase"));
-    return ok;
-}
-
-bool WalletUiBackend::lock(QString address)
-{
-    bool ok = modules().wallet_backend_module.lock(address);
-    setAccountUnlocked(false);
-    setStatusText(QStringLiteral("Locked"));
-    return ok;
-}
-
 // ── Balances + tokens ────────────────────────────────────────────────────────
 
 void WalletUiBackend::refreshBalances(QString address)
@@ -137,20 +121,45 @@ QString WalletUiBackend::estimateFee(QString sendJson)
     return modules().wallet_backend_module.estimate_fee(sendJson);
 }
 
+// A send no longer produces a transaction hash here. The wallet asks; a human
+// approves in the signer UI; only then is anything signed or broadcast. These
+// return a request id, and `sendStatus` carries it the rest of the way.
 QString WalletUiBackend::sendNative(QString sendJson)
 {
-    setStatusText(QStringLiteral("Sending…"));
-    QString r = modules().wallet_backend_module.send_native(sendJson);
-    setStatusText(QStringLiteral("Native transfer submitted"));
-    return r;
+    return trackSend(modules().wallet_backend_module.send_native(sendJson));
 }
 
 QString WalletUiBackend::sendErc20(QString sendJson)
 {
-    setStatusText(QStringLiteral("Sending…"));
-    QString r = modules().wallet_backend_module.send_erc20(sendJson);
-    setStatusText(QStringLiteral("ERC20 transfer submitted"));
-    return r;
+    return trackSend(modules().wallet_backend_module.send_erc20(sendJson));
+}
+
+QString WalletUiBackend::trackSend(QString reply)
+{
+    const QJsonObject o = QJsonDocument::fromJson(reply.toUtf8()).object();
+    if (!o.value(QStringLiteral("ok")).toBool()) {
+        setStatusText(QStringLiteral("Send failed"));
+        return reply;
+    }
+    setPendingRequestId(o.value(QStringLiteral("requestId")).toString());
+    setStatusText(QStringLiteral("Waiting for approval — open the Signer app"));
+    return reply;
+}
+
+QString WalletUiBackend::sendStatus(QString requestId)
+{
+    const QString reply = modules().wallet_backend_module.send_status(requestId);
+    const QJsonObject o = QJsonDocument::fromJson(reply.toUtf8()).object();
+    const QString state = o.value(QStringLiteral("state")).toString();
+    if (state == QStringLiteral("done")) {
+        setPendingRequestId(QString());
+        setStatusText(QStringLiteral("Sent"));
+        refreshHistory(selectedAccount());
+    } else if (state == QStringLiteral("declined")) {
+        setPendingRequestId(QString());
+        setStatusText(QStringLiteral("Declined in the Signer app"));
+    }
+    return reply;
 }
 
 // ── History ──────────────────────────────────────────────────────────────────
