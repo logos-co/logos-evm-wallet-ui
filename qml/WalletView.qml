@@ -295,6 +295,7 @@ Item {
                         }
                     }
                     LogosText {
+                        objectName: "historyEmpty"
                         visible: !root.history || root.history.length === 0
                         text: "No transactions yet"; color: Theme.palette.textTertiary; font.pixelSize: Theme.typography.secondaryText
                     }
@@ -510,10 +511,6 @@ Item {
                                 }), advAcctLabel.text),
                                 function (r) { advAcctResult.text = "Imported: " + r },
                                 function (e) { advAcctResult.text = "Import failed: " + e })
-                        }
-                        LogosButton {
-                            text: "Unlock imported"; enabled: root.ready && acctBox.currentText.length > 0
-                            onClicked: {} // removed: unlocking no longer exists
                         }
                     }
                     LogosText { id: advAcctResult; Layout.fillWidth: true; elide: Text.ElideMiddle; color: Theme.palette.textSecondary; font.pixelSize: Theme.typography.secondaryText }
