@@ -38,17 +38,11 @@ Item {
     readonly property var tokens: parseField(backend ? backend.tokensJson : "", "tokens", [])
     readonly property var history: parseField(backend ? backend.historyJson : "", "history", [])
     readonly property var market: parseField(backend ? backend.marketJson : "", "chains", [])
-    readonly property var shielded: parseField(backend ? backend.shieldedBalanceJson : "", "balances", [])
 
     function parseField(json, field, fallback) {
         if (!json) return fallback
         try { var o = JSON.parse(json); return (o && o[field] !== undefined) ? o[field] : fallback }
         catch (e) { return fallback }
-    }
-
-    // Active chain id for the Private tab (defaults to Sepolia 11155111).
-    function privChainId() {
-        return root.chains.length ? root.chains[privChain.currentIndex].chainId : 11155111
     }
 
     // Doctest hook: switch the active tab deterministically. qt-mcp drives this via
@@ -135,7 +129,6 @@ Item {
             LogosTabButton { text: "Send" }
             LogosTabButton { text: "Tokens" }
             LogosTabButton { text: "History" }
-            LogosTabButton { text: "Private" }
             LogosTabButton { text: "Settings" }
             LogosTabButton { text: "Advanced" }
         }
@@ -316,111 +309,7 @@ Item {
                 }
             }
 
-            // ── 5 · Private (RAILGUN — UNAUDITED upstream, Sepolia-first) ──
-            LogosScrollView {
-                clip: true
-                ColumnLayout {
-                    width: pages.width - 16
-                    spacing: Theme.spacing.small
-
-                    // Prominent unaudited / testnet warning.
-                    LogosFrame {
-                        Layout.fillWidth: true
-                        backgroundColor: Theme.palette.surfaceRaised
-                        borderColor: Theme.palette.warning
-                        ColumnLayout {
-                            anchors.fill: parent
-                            LogosText { text: "⚠ Private transactions (RAILGUN)"; font.weight: Theme.typography.weightBold; color: Theme.palette.warning }
-                            LogosText {
-                                Layout.fillWidth: true; wrapMode: Text.WordWrap; font.pixelSize: Theme.typography.secondaryText; color: Theme.palette.textSecondary
-                                text: "Experimental. The underlying engine is UNAUDITED — use on Sepolia (testnet) only; " +
-                                      "do not move mainnet funds here. Proving a private send can take a while."
-                            }
-                        }
-                    }
-
-                    LogosComboBox { id: privChain; Layout.fillWidth: true; textRole: "name"; model: root.chains; placeholderText: "Network" }
-
-                    // Enable the private account + show the 0zk address.
-                    RowLayout {
-                        Layout.fillWidth: true
-                        LogosButton {
-                            text: backend && backend.zkAddress.length ? "Re-enable" : "Enable private account"
-                            enabled: root.ready && backend && backend.pendingRequestId === "" && acctBox.currentText.length > 0
-                            onClicked: logos.watch(backend.initPrivate(acctBox.currentText, root.privChainId()),
-                                                   function (r) {}, function (e) {})
-                        }
-                        LogosButton {
-                            text: "Sync"; enabled: root.ready && backend && backend.zkAddress.length > 0
-                            onClicked: backend.syncPrivate()
-                        }
-                    }
-                    LogosText {
-                        Layout.fillWidth: true; font.pixelSize: Theme.typography.secondaryText; color: Theme.palette.textSecondary; elide: Text.ElideMiddle
-                        text: backend && backend.zkAddress.length
-                              ? ("0zk: " + backend.zkAddress)
-                              : "Not enabled — unlock an account, then enable."
-                    }
-
-                    // Shielded balances.
-                    RowLayout {
-                        Layout.fillWidth: true
-                        LogosText { text: "Shielded balance"; font.weight: Theme.typography.weightBold; Layout.fillWidth: true }
-                        LogosButton {
-                            text: "Refresh"; enabled: backend && backend.zkAddress.length > 0
-                            onClicked: backend.refreshShieldedBalance()
-                        }
-                    }
-                    Repeater {
-                        model: root.shielded
-                        RowLayout {
-                            Layout.fillWidth: true
-                            LogosText {
-                                font.pixelSize: Theme.typography.secondaryText; Layout.fillWidth: true; elide: Text.ElideMiddle
-                                text: (modelData.asset && modelData.asset.erc20) ? modelData.asset.erc20 : "asset"
-                            }
-                            LogosText { font.pixelSize: Theme.typography.secondaryText; color: Theme.palette.success; text: "" + modelData.amount }
-                        }
-                    }
-                    LogosText {
-                        visible: !root.shielded || root.shielded.length === 0
-                        text: "No shielded balance"; color: Theme.palette.textTertiary; font.pixelSize: Theme.typography.secondaryText
-                    }
-
-                    // Shield (public → private).
-                    LogosText { text: "Shield (deposit public → private)"; font.weight: Theme.typography.weightBold }
-                    LogosTextField { id: shieldAsset; Layout.fillWidth: true; placeholderText: "ERC-20 token address (0x…)" }
-                    LogosTextField { id: shieldAmount; Layout.fillWidth: true; placeholderText: "Amount (base units)" }
-                    LogosButton {
-                        text: "Shield"
-                        enabled: root.ready && backend && backend.pendingRequestId === "" && backend.zkAddress.length > 0
-                        onClicked: logos.watch(backend.shield(JSON.stringify({
-                            from: acctBox.currentText, chainId: root.privChainId(),
-                            asset: shieldAsset.text, amount: shieldAmount.text
-                        })), function (r) {}, function (e) {})
-                    }
-
-                    // Private send — 0zk… → private transfer, 0x… → unshield (via the 4337 relayer).
-                    LogosText { text: "Private send (the relayer hides the sender)"; font.weight: Theme.typography.weightBold }
-                    LogosTextField { id: privTo; Layout.fillWidth: true; placeholderText: "Recipient — 0zk… (private) or 0x… (withdraw)" }
-                    LogosTextField { id: privAsset; Layout.fillWidth: true; placeholderText: "ERC-20 token address (0x…)" }
-                    LogosTextField { id: privAmount; Layout.fillWidth: true; placeholderText: "Amount (base units)" }
-                    LogosTextField { id: privMemo; Layout.fillWidth: true; placeholderText: "Memo (optional — private transfers only)" }
-                    LogosTextField { id: privBundler; Layout.fillWidth: true; placeholderText: "Bundler URL (ERC-4337, Sepolia)" }
-                    LogosButton {
-                        text: "Send privately"
-                        enabled: root.ready && backend && backend.pendingRequestId === ""
-                                 && backend.zkAddress.length > 0 && privBundler.text.length > 0
-                        onClicked: logos.watch(backend.privateSend(JSON.stringify({
-                            from: acctBox.currentText, chainId: root.privChainId(), to: privTo.text,
-                            asset: privAsset.text, amount: privAmount.text,
-                            memo: privMemo.text, bundlerUrl: privBundler.text
-                        })), function (r) {}, function (e) {})
-                    }
-                }
-            }
-
-            // ── 6 · Settings (privacy / proxy) ──
+            // ── 5 · Settings (privacy / proxy) ──
             LogosScrollView {
                 clip: true
                 ColumnLayout {
@@ -439,7 +328,7 @@ Item {
                 }
             }
 
-            // ── 7 · Advanced (custom networks + account import; dev / testing) ──
+            // ── 6 · Advanced (custom networks + account import; dev / testing) ──
             LogosScrollView {
                 clip: true
                 ColumnLayout {

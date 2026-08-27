@@ -47,13 +47,6 @@ public:
     // History
     void refreshHistory(QString address) override;
 
-    // Private (RAILGUN) — UNAUDITED upstream, Sepolia-first
-    QString initPrivate(QString address, int chainId) override;
-    void syncPrivate() override;
-    void refreshShieldedBalance() override;
-    QString shield(QString sendJson) override;
-    QString privateSend(QString sendJson) override;
-
 private:
     // Shared by sendNative/sendErc20: record the request id and tell the user
     // where the decision happens.
