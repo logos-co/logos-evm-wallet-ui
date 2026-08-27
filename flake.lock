@@ -37023,17 +37023,17 @@
         "uniswap_module": "uniswap_module"
       },
       "locked": {
-        "lastModified": 1787850847,
+        "lastModified": 1787852274,
         "narHash": "sha256-yK009RuVk3k0eKsUpM0wPZ4zWTZQliIJsJ0EuP3lMr0=",
         "owner": "logos-co",
         "repo": "logos-evm-wallet-backend-module",
-        "rev": "06cfcb6f791950de21df93a2a2e88290063579bf",
+        "rev": "5ed06f701622389658d6b55d1b5c5a2bf6cce508",
         "type": "github"
       },
       "original": {
         "owner": "logos-co",
         "repo": "logos-evm-wallet-backend-module",
-        "rev": "06cfcb6f791950de21df93a2a2e88290063579bf",
+        "rev": "5ed06f701622389658d6b55d1b5c5a2bf6cce508",
         "type": "github"
       }
     }
