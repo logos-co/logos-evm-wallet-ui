@@ -5,7 +5,7 @@
     logos-module-builder.url = "github:logos-co/logos-module-builder";
     # The backend the UI drives. Declaring its whole dependency tree here is what
     # lets the standalone app bundle and auto-load every module in order.
-    wallet_backend_module.url = "github:logos-co/logos-evm-wallet-backend-module/a8150171b567a4479cca5dc0a19ce2f0423ae132";
+    wallet_backend_module.url = "github:logos-co/logos-evm-wallet-backend-module/06cfcb6f791950de21df93a2a2e88290063579bf";
 
     # Each leaf is the backend's OWN locked input, never a second pin of our own:
     # collectAllModuleDeps is `transitive // direct`, so a url here shadows the
@@ -14,11 +14,6 @@
     keystore_module.follows = "wallet_backend_module/keystore_module";
     token_list_module.follows = "wallet_backend_module/token_list_module";
     uniswap_module.follows = "wallet_backend_module/uniswap_module";
-
-    # NOT followed: railgun still calls keystore's removed `sign_digest`, so it
-    # does not compile against the keystore the backend requires. Its private-send
-    # path is broken against that keystore either way -- see logos-evm-railgun-module.
-    railgun_module.url = "github:logos-co/logos-evm-railgun-module";
   };
 
   outputs = inputs@{ logos-module-builder, ... }:

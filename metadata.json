@@ -13,7 +13,6 @@
     "keystore_module",
     "token_list_module",
     "uniswap_module",
-    "railgun_module",
     "wallet_backend_module"
   ],
   "codegen": {

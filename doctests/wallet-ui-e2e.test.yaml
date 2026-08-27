@@ -121,7 +121,7 @@ sections:
               find_by: "objectName"
               find_value: "walletRoot"
               method: "selectTab"
-              args: [7]
+              args: [6]
             - name: "Advanced tab rendered"
               action: wait_for
               texts: ["Custom network"]
