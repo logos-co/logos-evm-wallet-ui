@@ -116,7 +116,6 @@ Item {
                 text: "Waiting for approval in the Signer app"
                 textFormat: Text.PlainText
             }
-            LogosButton { text: "New"; enabled: root.ready; onClicked: createDialog.open() }
         }
 
         // ── Tabs ──
@@ -384,25 +383,21 @@ Item {
                         }
                     }
 
-                    // Import an account from a seed phrase, then unlock it — inline
-                    // (no modal) so the whole wallet flow is scriptable headless.
-                    // Signing stays in the keystore module; the seed only transits
-                    // to the backend's import call.
-                    LogosText { text: "Import account (seed phrase)"; font.weight: Theme.typography.weightBold; Layout.topMargin: Theme.spacing.small }
-                    LogosTextField { id: advSeed; objectName: "advSeedField"; Layout.fillWidth: true; placeholderText: "Seed phrase (BIP-39 words)" }
-                    LogosTextField { id: advAcctLabel; objectName: "advAcctLabelField"; Layout.fillWidth: true; placeholderText: "Account label (e.g. main)" }
-                    LogosTextField { id: advAcctPw; objectName: "advAcctPwField"; Layout.fillWidth: true; placeholderText: "Account passphrase"; echoMode: TextInput.Password }
-                    RowLayout {
-                        LogosButton {
-                            text: "Import"; enabled: root.ready && advSeed.text.length > 0
-                            onClicked: logos.watch(backend.importMnemonic(JSON.stringify({
-                                    phrase: advSeed.text, accountIndex: 0, password: advAcctPw.text
-                                }), advAcctLabel.text),
-                                function (r) { advAcctResult.text = "Imported: " + r },
-                                function (e) { advAcctResult.text = "Import failed: " + e })
-                        }
+                    // Accounts are created and imported in the KEYSTORE app, not here. A
+                    // wallet requests signatures and reads which accounts exist; a seed
+                    // phrase never enters this process, and the keystore refuses the
+                    // mutation anyway — this notice is the honest version of a field that
+                    // could no longer work.
+                    LogosText { text: "Accounts"; font.weight: Theme.typography.weightBold; Layout.topMargin: Theme.spacing.small }
+                    LogosText {
+                        objectName: "accountsManagedElsewhere"
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        color: Theme.palette.textSecondary
+                        font.pixelSize: Theme.typography.secondaryText
+                        text: "Create and import accounts in the Keystore app. They appear here "
+                              + "once they exist."
                     }
-                    LogosText { id: advAcctResult; Layout.fillWidth: true; elide: Text.ElideMiddle; color: Theme.palette.textSecondary; font.pixelSize: Theme.typography.secondaryText }
                 }
             }
         }
@@ -458,16 +453,6 @@ Item {
     // Modals — plain Dialog with a Theme-coloured surface + Logos inner content
     // (the basecamp pattern); LogosDialog uses left/rightActions rather than
     // standardButtons, so we keep Dialog here for the simple Ok/Cancel flow.
-    Dialog {
-        id: createDialog; title: "New account"; modal: true; anchors.centerIn: parent
-        standardButtons: Dialog.Ok | Dialog.Cancel
-        background: Rectangle { color: Theme.palette.backgroundSecondary; border.color: Theme.palette.borderSubtle; border.width: 1; radius: Theme.spacing.radiusLarge }
-        ColumnLayout {
-            LogosTextField { id: newLabel; placeholderText: "Label" }
-            LogosTextField { id: newPw; placeholderText: "Passphrase"; echoMode: TextInput.Password }
-        }
-        onAccepted: { logos.watch(backend.createAccount(newPw.text, newLabel.text), function (r) {}, function (e) {}); newPw.text = "" }
-    }
     Dialog {
         id: addTokenDialog; title: "Add custom token"; modal: true; anchors.centerIn: parent
         standardButtons: Dialog.Ok | Dialog.Cancel

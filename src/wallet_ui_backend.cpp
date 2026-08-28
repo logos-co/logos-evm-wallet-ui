@@ -59,22 +59,6 @@ QString WalletUiBackend::testEndpoint(int chainId)
 
 // ── Accounts ─────────────────────────────────────────────────────────────────
 
-QString WalletUiBackend::createAccount(QString passphrase, QString label)
-{
-    QString r = modules().wallet_backend_module.create_account(passphrase, label);
-    refreshAccounts();
-    setStatusText(QStringLiteral("Account created"));
-    return r;
-}
-
-QString WalletUiBackend::importMnemonic(QString phraseJson, QString label)
-{
-    QString r = modules().wallet_backend_module.import_mnemonic(phraseJson, label);
-    refreshAccounts();
-    setStatusText(QStringLiteral("Account imported"));
-    return r;
-}
-
 void WalletUiBackend::refreshAccounts()
 {
     setAccountsJson(modules().wallet_backend_module.list_accounts());

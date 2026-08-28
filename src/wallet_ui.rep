@@ -25,8 +25,6 @@ class WalletUi
     SLOT(QString testEndpoint(int chainId))
 
     // Accounts (signing stays in the keystore module)
-    SLOT(QString createAccount(QString passphrase, QString label))
-    SLOT(QString importMnemonic(QString phraseJson, QString label))
     SLOT(void refreshAccounts())
     // Poll a signing request the wallet raised. Approval happens in the
     // signer UI, which is the only surface that takes the password.

@@ -89,6 +89,35 @@ sections:
       > its dependencies, and the standalone-app shell), so we allow a generous
       > timeout.
     steps:
+      - title: "Stage an account the wallet cannot create for itself"
+        text: |
+          The wallet can no longer import an account — that is gated on the keystore's
+          **custodian** (`keystore_ui`), and the wallet is deliberately not it. So the spec
+          brings its own: a pre-made vault for Foundry's account 0, encrypted under `pw`.
+
+          It takes two launches because the destination is **instance-hashed** and does not
+          exist until the keystore module has run once. The first launch is a warm-up: it
+          creates `session/module_data/keystore_module/<hash>/`, we drop the vault in, and
+          the real run below finds the account already there. The bundle is built once and
+          cached, so the second launch is fast.
+        run: |
+          timeout 2400 nix run "github:logos-co/logos-evm-wallet-ui{release}" \
+            --no-write-lock-file -- --height 200 --user-dir ./session >warmup.log 2>&1 &
+          warm=$!
+          for _ in $(seq 1 120); do
+            d=$(find ./session -type d -path '*module_data/keystore_module/*/keystore' 2>/dev/null | head -1)
+            [ -n "$d" ] && break
+            sleep 2
+          done
+          kill "$warm" 2>/dev/null || true; wait "$warm" 2>/dev/null || true
+          d=$(find ./session -type d -path '*module_data/keystore_module/*/keystore' | head -1)
+          test -n "$d" || { echo "keystore data dir never appeared"; exit 1; }
+          cp doctests/fixtures/f39fd6e51aad88f6f4ce6ab8827279cfffb92266.json "$d/"
+          echo "staged into $d"
+        code_block: "cp doctests/fixtures/f39fd*.json session/module_data/keystore_module/<hash>/keystore/"
+        expect_contains:
+          - "staged into"
+
       - title: "Drive the app: Advanced → Send → History"
         ui_test:
           # --height 2000 keeps every page's controls on-screen: qt-mcp clicks an
@@ -163,28 +192,22 @@ sections:
               texts: ["Chains updated"]
               timeout: 15000
 
-            # ── Import + unlock Foundry's well-known test account ──
-            - name: "Enter the seed phrase"
-              action: set_text
-              find_by: "objectName"
-              find_value: "advSeedField"
-              value: "test test test test test test test test test test test junk"
-            - name: "Enter the account passphrase"
-              action: set_text
-              find_by: "objectName"
-              find_value: "advAcctPwField"
-              value: "pw"
-            - name: "Import the account"
-              action: click
-              target: "Import"
-            - name: "Account imported (status flips)"
+            # ── The account is STAGED, not imported ──
+            # The wallet can no longer create or import an account: that is gated on the
+            # keystore's custodian (keystore_ui), and the wallet is not it. So the spec
+            # brings its own account rather than asking the wallet to make one — see
+            # doctests/fixtures/README.md for how the vault was produced.
+            #
+            # `list_accounts` stays ungated, which is why the wallet can still SEE it.
+            - name: "The account is already there, and the wallet can read it"
               action: wait_for
-              texts: ["Account imported"]
+              texts: ["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"]
               timeout: 20000
-              screenshot: "wallet-ui-e2e-import.png"
-            # There is no unlock step any more, and no "Unlocked" state to wait
-            # for: the wallet never holds the key. An imported account is an
-            # address it knows about, nothing more.
+              screenshot: "wallet-ui-e2e-account.png"
+            - name: "…and account management now points at the Keystore app"
+              action: wait_for
+              texts: ["Create and import accounts in the Keystore app"]
+              timeout: 10000
 
             # ── Send a native transfer through the Send tab ──
             - name: "Switch to the Send tab"
