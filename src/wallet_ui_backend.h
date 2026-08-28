@@ -26,8 +26,6 @@ public:
     QString testEndpoint(int chainId) override;
 
     // Accounts
-    QString createAccount(QString passphrase, QString label) override;
-    QString importMnemonic(QString phraseJson, QString label) override;
     void refreshAccounts() override;
 
     // Balances + tokens
